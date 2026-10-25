@@ -9,6 +9,7 @@ import { References } from './screens/References';
 import { Settings } from './screens/Settings';
 import { About } from './screens/About';
 import { Modal } from './components/ui';
+import { PatientGallery } from './screens/PatientGallery';
 
 const NAV: { route: Route; label: string }[] = [
   { route: 'home', label: '首頁' },
@@ -51,7 +52,7 @@ export function App() {
             <button className="btn sm" onClick={dismissLoadMessage}>知道了</button>
           </div>
         )}
-        {route === 'home' && <Home />}
+        {import.meta.env.DEV && window.location.hash === '#/gallery' ? <PatientGallery /> : route === 'home' && <Home />}
         {route === 'cases' && <CaseSelect />}
         {route === 'play' && <Play />}
         {route === 'kb' && <Knowledge />}

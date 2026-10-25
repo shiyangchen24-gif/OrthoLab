@@ -23,6 +23,8 @@ import { useStore } from '../store';
 import { sound } from '../audio';
 import { Flags, RefChips } from '../components/ui';
 import { FractureXRay } from '../components/art/XRay';
+import { PatientView, limbBox, limbsFromSide, raisedLimbs } from '../components/PatientView';
+import { nextPalpation, palpationTrigger, type PalpationEvent } from '../engine/palpation';
 import { DOG_LIMBS, ExamRoom, ExamTable, Owner, SceneDog, Vet, limbLength, limbRotation } from './art';
 import { DragGhost, TaskHint, ToolInfo, ToolTray, Zone, useFeedback, useTrayDrag, type ToolDef } from './ToolKit';
 import { SceneShell, usePortrait } from './SceneShell';
@@ -59,11 +61,13 @@ export function sceneStageIndex(s: CaseSession, heard: boolean): number {
 }
 
 export function C07Clinic() {
-  const { data, updateSession } = useStore();
+  const { data, updateSession, reducedMotion } = useStore();
   const s = data.session!;
   const c = caseById(CASE)!;
   const meta = CASE_META[CASE];
   const clues = cluesForCase(CASE);
+  // illustration feedback only: replays the withdrawal for a valid first palpation of this session
+  const [palpation, setPalpation] = useState<PalpationEvent | null>(null);
   const portrait = usePortrait();
   const heard = (s.moduleState['scene:C07:heard'] as boolean | undefined) ?? false;
   const phase = phaseOf(s, heard);
@@ -97,7 +101,7 @@ export function C07Clinic() {
       icon: 'tag',
       name: '患肢標記',
       purpose: '把標記掛在你判斷的患肢上',
-      where: '病患的四肢（看到的是病患左側；右側肢在後方較深色）',
+      where: '病患的四肢（病患面向你：病患左側在畫面右側，右側肢較深色）',
       locked: heard ? null : '先聽飼主說明主訴',
       done: localized,
     },
@@ -174,7 +178,7 @@ export function C07Clinic() {
             return say('ok', `已標記${LIMB_LABEL[limb]}。檢查工具已解鎖。`);
           }
           sound.play('warn');
-          return say('warn', `${LIMB_LABEL[limb]}不是患肢（已記錄首次作答）。重讀主訴，並注意畫面看到的是病患左側。`);
+          return say('warn', `${LIMB_LABEL[limb]}不是患肢（已記錄首次作答）。重讀主訴，並注意病患面向你：病患左側在畫面右側。`);
         }
         case 'observe':
           if (!onDog) return say('warn', '步態觀察要對著病患使用。');
@@ -189,6 +193,7 @@ export function C07Clinic() {
           if (!limb) return say('warn', '觸診要放在肢體上。');
           if (limb !== 'LF') return say('warn', `${LIMB_LABEL[limb]}不是已標記的患肢；觸診集中在患肢一次即可，不需重複碰觸。`);
           if (has(2)) return say('info', '已完成觸診；不需要重複碰觸疼痛部位。');
+          setPalpation((prev) => nextPalpation(prev, s, clues.find((x) => x.id === E(2))!));
           reveal(2);
           sound.play('reveal');
           flash(zone);
@@ -296,8 +301,20 @@ export function C07Clinic() {
           </g>
         )}
         <Vet x={lay.vet} y={290} wave={phase === 'decide'} />
-        {/* dog: walks in on the floor, then sits on the table */}
-        <g className="dog-move" style={{ transform: dogOnTable ? `translate(600px, ${520 - 229 * dogScale}px)` : `translate(${lay.dogFloor[0]}px, ${lay.dogFloor[1]}px)` }}>
+        {/* on the table: the seated patient illustration with tool targets laid over it */}
+        {/* kept mounted (only hidden) during the gait walk so its animations never restart */}
+        {dogOnTable && (
+          <TablePatient
+            hidden={walking}
+            zp={zp}
+            pop={pop}
+            localized={localized}
+            trigger={palpationTrigger(palpation, s.eventId)}
+            reducedMotion={reducedMotion}
+          />
+        )}
+        {/* dog: walks in on the floor; the side view is also used for the gait observation */}
+        {(!dogOnTable || walking) && <g className="dog-move" style={{ transform: dogOnTable ? `translate(600px, ${520 - 229 * dogScale}px)` : `translate(${lay.dogFloor[0]}px, ${lay.dogFloor[1]}px)` }}>
           <g className={!heard ? 'enter-left' : undefined}>
             <SceneDog x={0} y={0} scale={dogOnTable ? dogScale : 1} lifted="LF" walking={walking} limbOverlay={(l) => (localized && l === 'LF' ? <TagMark /> : null)} />
             {/* zones drawn on top of the art so they receive input; limbs last so they win over the body */}
@@ -307,7 +324,7 @@ export function C07Clinic() {
             {/* limb zones drawn on top so they win hit-testing */}
             {dogOnTable && <LimbZones zp={zp} scale={dogScale} pop={pop} localized={localized} />}
           </g>
-        </g>
+        </g>}
       </svg>
       <DragGhost drag={drag} tools={tools} />
       {panel === 'xray' && (
@@ -322,9 +339,54 @@ export function C07Clinic() {
   );
 }
 
-function TagMark() {
+const LIMBS: Limb[] = ['RH', 'LH', 'RF', 'LF']; // forelimbs last so they win overlapping hits
+// scene units: paws on the table top (y 520), clear of the whiteboard on the right
+const PV = { x: 610, y: 109, size: 420 };
+
+/** The seated patient (PatientView) on the table, with body and per-limb tool targets on top. */
+function TablePatient({ hidden, zp, pop, localized, trigger, reducedMotion }: { hidden: boolean; zp: { selected: string | null; hover: string | null; onUse: (z: string) => void }; pop: string | null; localized: boolean; trigger: number; reducedMotion: boolean }) {
+  const c = caseById(CASE)!;
+  const affected = limbsFromSide(c.side);
+  const raised = new Set(raisedLimbs(c.pose, affected));
+  const k = PV.size / 340;
   return (
-    <g transform="translate(250 186)">
+    <g data-testid="table-patient" className="fade-in" style={hidden ? { opacity: 0, pointerEvents: 'none' } : undefined} aria-hidden={hidden || undefined}>
+      <PatientView
+        nested={{ x: PV.x, y: PV.y }}
+        size={PV.size}
+        species={c.species}
+        breed={c.breed}
+        pose={c.pose}
+        affectedLimbs={affected}
+        palpationTrigger={trigger}
+        reducedMotion={reducedMotion}
+        limbOverlay={(l) => (localized && l === 'LF' ? <TagMark x={214} y={236} /> : null)}
+      />
+      <g transform={`translate(${PV.x} ${PV.y}) scale(${k})`}>
+        <Zone id="dog" label="病患身體" accepts={['observe']} {...zp} pop={pop === 'dog'}>
+          <rect className="limb-outline" x="100" y="40" width="140" height="290" rx="64" />
+        </Zone>
+        {LIMBS.map((l) => (
+          <Zone
+            key={l}
+            id={`limb-${l}`}
+            label={`${LIMB_LABEL[l]}（畫面${l.startsWith('L') ? '右' : '左'}側）`}
+            accepts={['tag', 'palpate', 'xray', 'observe']}
+            {...zp}
+            pop={pop === `limb-${l}`}
+            done={localized && l === 'LF'}
+          >
+            <rect className="limb-outline" {...limbBox(l, raised.has(l))} rx="22" />
+          </Zone>
+        ))}
+      </g>
+    </g>
+  );
+}
+
+function TagMark({ x = 250, y = 186 }: { x?: number; y?: number }) {
+  return (
+    <g transform={`translate(${x} ${y})`}>
       <path d="M0 0 L22 -10 L40 8 L18 28 Z" fill="#FB923C" stroke="#C2410C" strokeWidth="3" />
       <circle cx="22" cy="0" r="4" fill="#FFF7ED" />
     </g>

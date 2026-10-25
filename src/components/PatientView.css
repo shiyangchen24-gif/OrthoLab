@@ -1,0 +1,35 @@
+/* PatientView animation layers. Each animation lives on its own <g>, so
+   transforms never override each other or the static pose:
+   torso > .breathing · eye > .patient-blink · limb > .limping-tremor > .palpation-withdraw */
+.patient-view:not(.nested) { display: block; max-width: 100%; height: auto; overflow: visible; margin: 0 auto; }
+.patient-view.nested { overflow: visible; }
+.patient-view-wrap { max-width: 100%; }
+.patient-view .patient-figure { filter: drop-shadow(0 4px 3px rgb(70 60 50 / 10%)); }
+
+/* breathing: chest/belly rise ~4.6 s; anchored at the base so paws never slide */
+.patient-view .breathing { transform-box: view-box; transform-origin: 170px 326px; animation: pv-breathing 4.6s ease-in-out infinite; }
+@keyframes pv-breathing { 0%, 100% { transform: scale(1, 1); } 45% { transform: scale(1.012, 1.02); } }
+
+/* blinking: eyes only, around each eye's own centre */
+.patient-view .patient-blink { transform-box: fill-box; transform-origin: center; animation: pv-blink 5.8s ease-in-out infinite; }
+.patient-view .patient-blink + .patient-blink { animation-delay: .04s; }
+@keyframes pv-blink { 0%, 91%, 97%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.1); } }
+
+/* limping tremor: occasional, low amplitude, only on a limb that is already held up;
+   origin = proximal joint (set inline). Illustrative only, not a pain score. */
+.patient-view .limping-tremor { transform-box: view-box; animation: pv-tremor 6.2s ease-in-out infinite; }
+@keyframes pv-tremor { 0%, 70%, 86%, 100% { transform: rotate(0); } 73%, 79% { transform: rotate(1.2deg); } 76%, 82% { transform: rotate(-1deg); } }
+
+/* palpation withdrawal: limb pulls briefly toward the body, then returns (~0.7 s) */
+.patient-view .palpation-withdraw { transform-box: view-box; animation: pv-withdraw .7s ease-out both; }
+@keyframes pv-withdraw {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  30% { transform: rotate(calc(var(--withdraw-dir, 1) * 7deg)) translateY(-6px); }
+  65% { transform: rotate(calc(var(--withdraw-dir, 1) * 2deg)) translateY(-2px); }
+}
+
+.patient-view-cue { margin-top: 4px; font-size: .82rem; color: #0F766E; background: #F0FDFA; border: 1px dashed #5EEAD4; border-radius: 8px; padding: 2px 8px; display: inline-block; }
+
+/* game setting (data attribute) and OS preference both stop every layer */
+.patient-view[data-reduced-motion='true'] *, [data-motion='reduced'] .patient-view * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .patient-view * { animation: none !important; } }

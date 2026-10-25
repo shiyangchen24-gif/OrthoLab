@@ -131,7 +131,7 @@ footer.site { text-align: center; font-size: .8rem; color: var(--muted); padding
 /* ---------- clinic ---------- */
 .clinic { display: grid; grid-template-columns: 320px 1fr; gap: 16px; }
 @media (max-width: 960px) { .clinic { grid-template-columns: 1fr; } }
-.patient-panel .art { background: linear-gradient(180deg, #f0f9ff 0%, #fefce8 100%); border-radius: 12px; height: 200px; display: grid; place-items: center; overflow: hidden; }
+.patient-panel .art { background: linear-gradient(180deg, #f0f9ff 0%, #fefce8 100%); border-radius: 12px; min-height: 200px; display: grid; place-items: center; padding: 6px 0; text-align: center; }
 .vitals { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
 .vital { background: var(--clinic-bg2); border-radius: 10px; padding: 6px 10px; }
 .vital b { display: block; font-size: 1.05rem; }
@@ -332,6 +332,8 @@ details.kb summary { cursor: pointer; font-weight: 700; }
 @keyframes glow { 50% { opacity: .55; } }
 .enter-left { }
 [data-motion='full'] .enter-left { animation: enterleft 1.2s ease-out both; }
+[data-motion='full'] .fade-in { animation: fadein .6s ease-out both; }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 @keyframes enterleft { from { transform: translateX(-420px); } to { transform: none; } }
 .dog-move { transition: transform .9s ease-in-out; }
 [data-motion='reduced'] .dog-move { transition: none; }

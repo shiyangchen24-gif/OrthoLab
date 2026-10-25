@@ -16,7 +16,8 @@ import {
 } from '../engine/session';
 import { FLOW, flowIndex, guideFor } from '../engine/guide';
 import { ANSWER_LABEL, type Clue, type ClueCategory } from '../types';
-import { Patient } from '../components/art/Patient';
+import { PatientView, limbsFromSide } from '../components/PatientView';
+import { nextPalpation, palpationTrigger, type PalpationEvent } from '../engine/palpation';
 import { LimbMap } from '../components/art/LimbMap';
 import { XRayPanel } from '../components/art/XRay';
 import { Flags, RefChips, Stepper } from '../components/ui';
@@ -36,11 +37,13 @@ function highlight(text: string): ReactNode {
 }
 
 export function Clinic() {
-  const { data, updateSession } = useStore();
+  const { data, updateSession, reducedMotion } = useStore();
   const s = data.session!;
   const c = caseById(s.caseId)!;
   const meta = CASE_META[c.id];
   const clues = cluesForCase(c.id);
+  // palpation feedback for the illustration; keyed by eventId so a new case/restart starts clean
+  const [palpation, setPalpation] = useState<PalpationEvent | null>(null);
   const options = useMemo(() => optionsForCase(c.id), [c.id]);
   const missing = missingRequiredClues(s);
   const required = clues.filter((x) => x.required);
@@ -51,6 +54,7 @@ export function Clinic() {
 
   const reveal = (clue: Clue) => {
     if (!clueAvailable(s, clue.id) || s.revealed.includes(clue.id)) return;
+    setPalpation((prev) => nextPalpation(prev, s, clue));
     sound.play('reveal');
     updateSession((x) => revealClue(x, clue.id));
   };
@@ -83,7 +87,16 @@ export function Clinic() {
             {s.kind === 'practice' && <span className="tag">練習模式</span>}
           </div>
           <div className="art">
-            <Patient species={c.species} breed={c.breed} pose={c.pose} side={c.side} />
+            <PatientView
+              key={s.eventId}
+              species={c.species}
+              breed={c.breed}
+              pose={c.pose}
+              affectedLimbs={limbsFromSide(c.side)}
+              palpationTrigger={palpationTrigger(palpation, s.eventId)}
+              reducedMotion={reducedMotion}
+              size={250}
+            />
           </div>
           <p style={{ margin: 0 }}>
             <span className="small muted">飼主主訴：</span>「{c.complaint}」
@@ -244,7 +257,7 @@ function LimbStep() {
     <section className="card" aria-label="患肢定位">
       <h3>患肢定位</h3>
       <p className="small muted">
-        俯視圖中頭朝上，<b>病患左側＝畫面左側</b>（左方的病患側視圖則依患側翻面，不能直接用畫面左右判斷）。雙側問題可複選。
+        俯視圖中頭朝上，<b>病患左側＝畫面左側</b>（左方的病患插圖面向你，<b>病患左側在畫面右側</b>，不能直接用畫面左右判斷）。雙側問題可複選。
       </p>
       <div className="grid cols-2" style={{ alignItems: 'center' }}>
         <LimbMap species={c.species} selected={picks} confirmed={[]} onToggle={toggle} />
