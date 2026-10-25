@@ -10,30 +10,30 @@ import type { Limb } from '../data/caseMeta';
 export function Owner({ x, y, scale = 1, talking = false }: { x: number; y: number; scale?: number; talking?: boolean }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${scale})`} aria-label="飼主">
-      <ellipse cx="0" cy="372" rx="70" ry="12" fill="#0F172A" opacity=".08" />
+      <ellipse cx="0" cy="372" rx="70" ry="12" fill="#3E4650" opacity=".08" />
       {/* legs */}
-      <rect x="-34" y="250" width="28" height="118" rx="12" fill="#334155" />
-      <rect x="6" y="250" width="28" height="118" rx="12" fill="#334155" />
-      <rect x="-40" y="356" width="36" height="16" rx="8" fill="#1E293B" />
-      <rect x="4" y="356" width="36" height="16" rx="8" fill="#1E293B" />
+      <rect x="-34" y="250" width="28" height="118" rx="12" fill="#5B6670" />
+      <rect x="6" y="250" width="28" height="118" rx="12" fill="#5B6670" />
+      <rect x="-40" y="356" width="36" height="16" rx="8" fill="#4A5058" />
+      <rect x="4" y="356" width="36" height="16" rx="8" fill="#4A5058" />
       {/* body */}
-      <path d="M-58 120 Q-60 92 -30 86 L30 86 Q60 92 58 120 L52 262 L-52 262 Z" fill="#F97316" />
-      <path d="M-20 86 L0 120 L20 86" fill="#FED7AA" />
+      <path d="M-58 120 Q-60 92 -30 86 L30 86 Q60 92 58 120 L52 262 L-52 262 Z" fill="#DE9C78" />
+      <path d="M-20 86 L0 120 L20 86" fill="#F6DCC8" />
       {/* arms */}
-      <path d="M-56 110 Q-84 170 -60 230" stroke="#F97316" strokeWidth="26" fill="none" strokeLinecap="round" />
-      <path d="M56 110 Q86 160 70 214" stroke="#F97316" strokeWidth="26" fill="none" strokeLinecap="round" />
+      <path d="M-56 110 Q-84 170 -60 230" stroke="#DE9C78" strokeWidth="26" fill="none" strokeLinecap="round" />
+      <path d="M56 110 Q86 160 70 214" stroke="#DE9C78" strokeWidth="26" fill="none" strokeLinecap="round" />
       <circle cx="-60" cy="234" r="14" fill="#F2C7A5" />
       <circle cx="70" cy="218" r="14" fill="#F2C7A5" />
       {/* leash */}
-      <path d="M72 222 Q140 250 190 262" stroke="#0284C7" strokeWidth="4" fill="none" />
+      <path d="M72 222 Q140 250 190 262" stroke="#6FA6AC" strokeWidth="4" fill="none" />
       {/* head */}
       <rect x="-12" y="62" width="24" height="28" rx="10" fill="#F2C7A5" />
       <circle cx="0" cy="38" r="40" fill="#F2C7A5" />
-      <path d="M-42 34 Q-44 -8 0 -6 Q44 -8 42 34 Q34 8 0 12 Q-30 10 -42 34 Z" fill="#7C2D12" />
+      <path d="M-42 34 Q-44 -8 0 -6 Q44 -8 42 34 Q34 8 0 12 Q-30 10 -42 34 Z" fill="#7A4B36" />
       <circle cx="-14" cy="40" r="4.5" fill="#1F2937" />
       <circle cx="14" cy="40" r="4.5" fill="#1F2937" />
-      <path d="M-14 26 q6 -4 12 0 M2 26 q6 -4 12 0" stroke="#7C2D12" strokeWidth="3" fill="none" strokeLinecap="round" />
-      {talking ? <ellipse cx="0" cy="58" rx="8" ry="6" fill="#9A3412" /> : <path d="M-8 58 q8 6 16 0" stroke="#9A3412" strokeWidth="3" fill="none" strokeLinecap="round" />}
+      <path d="M-14 26 q6 -4 12 0 M2 26 q6 -4 12 0" stroke="#7A4B36" strokeWidth="3" fill="none" strokeLinecap="round" />
+      {talking ? <ellipse cx="0" cy="58" rx="8" ry="6" fill="#8C5440" /> : <path d="M-8 58 q8 6 16 0" stroke="#8C5440" strokeWidth="3" fill="none" strokeLinecap="round" />}
     </g>
   );
 }
@@ -41,33 +41,33 @@ export function Owner({ x, y, scale = 1, talking = false }: { x: number; y: numb
 export function Vet({ x, y, scale = 1, wave = false }: { x: number; y: number; scale?: number; wave?: boolean }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${scale})`} aria-label="獸醫（玩家）">
-      <ellipse cx="0" cy="372" rx="70" ry="12" fill="#0F172A" opacity=".08" />
-      <rect x="-32" y="250" width="26" height="118" rx="12" fill="#1E3A5F" />
-      <rect x="6" y="250" width="26" height="118" rx="12" fill="#1E3A5F" />
-      <rect x="-38" y="356" width="34" height="16" rx="8" fill="#0F172A" />
-      <rect x="4" y="356" width="34" height="16" rx="8" fill="#0F172A" />
+      <ellipse cx="0" cy="372" rx="70" ry="12" fill="#3E4650" opacity=".08" />
+      <rect x="-32" y="250" width="26" height="118" rx="12" fill="#56697A" />
+      <rect x="6" y="250" width="26" height="118" rx="12" fill="#56697A" />
+      <rect x="-38" y="356" width="34" height="16" rx="8" fill="#3E4650" />
+      <rect x="4" y="356" width="34" height="16" rx="8" fill="#3E4650" />
       {/* white coat */}
-      <path d="M-62 122 Q-62 90 -30 84 L30 84 Q62 90 62 122 L60 300 L-60 300 Z" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="3" />
-      <path d="M-14 84 L0 140 L14 84 Z" fill="#0284C7" />
-      <path d="M0 140 L0 296" stroke="#CBD5E1" strokeWidth="3" />
-      <rect x="-48" y="170" width="28" height="22" rx="4" fill="none" stroke="#CBD5E1" strokeWidth="3" />
+      <path d="M-62 122 Q-62 90 -30 84 L30 84 Q62 90 62 122 L60 300 L-60 300 Z" fill="#FFFFFF" stroke="#D8D6D0" strokeWidth="3" />
+      <path d="M-14 84 L0 140 L14 84 Z" fill="#6FA6AC" />
+      <path d="M0 140 L0 296" stroke="#D8D6D0" strokeWidth="3" />
+      <rect x="-48" y="170" width="28" height="22" rx="4" fill="none" stroke="#D8D6D0" strokeWidth="3" />
       {/* stethoscope */}
-      <path d="M-24 96 Q-36 170 -6 186 Q18 196 26 160" stroke="#334155" strokeWidth="5" fill="none" />
-      <circle cx="26" cy="156" r="8" fill="#F97316" />
+      <path d="M-24 96 Q-36 170 -6 186 Q18 196 26 160" stroke="#5B6670" strokeWidth="5" fill="none" />
+      <circle cx="26" cy="156" r="8" fill="#DE9C78" />
       {/* arms */}
       <path d={wave ? 'M58 112 Q96 70 92 26' : 'M58 112 Q84 170 66 228'} stroke="#FFFFFF" strokeWidth="28" fill="none" strokeLinecap="round" />
-      <path d={wave ? 'M58 112 Q96 70 92 26' : 'M58 112 Q84 170 66 228'} stroke="#CBD5E1" strokeWidth="3" fill="none" strokeLinecap="round" opacity=".6" />
+      <path d={wave ? 'M58 112 Q96 70 92 26' : 'M58 112 Q84 170 66 228'} stroke="#D8D6D0" strokeWidth="3" fill="none" strokeLinecap="round" opacity=".6" />
       <path d="M-58 112 Q-84 170 -66 228" stroke="#FFFFFF" strokeWidth="28" fill="none" strokeLinecap="round" />
-      <circle cx={wave ? 92 : 66} cy={wave ? 20 : 232} r="14" fill="#BAE6FD" />
-      <circle cx="-66" cy="232" r="14" fill="#BAE6FD" />
+      <circle cx={wave ? 92 : 66} cy={wave ? 20 : 232} r="14" fill="#D7E7E6" />
+      <circle cx="-66" cy="232" r="14" fill="#D7E7E6" />
       {/* head */}
       <rect x="-12" y="60" width="24" height="28" rx="10" fill="#F5D0B5" />
       <circle cx="0" cy="36" r="40" fill="#F5D0B5" />
-      <path d="M-42 30 Q-40 -10 0 -8 Q40 -10 42 30 Q30 4 -2 8 Q-28 8 -42 30 Z" fill="#334155" />
+      <path d="M-42 30 Q-40 -10 0 -8 Q40 -10 42 30 Q30 4 -2 8 Q-28 8 -42 30 Z" fill="#5B6670" />
       <circle cx="-14" cy="38" r="4.5" fill="#1F2937" />
       <circle cx="14" cy="38" r="4.5" fill="#1F2937" />
-      <path d="M-10 56 q10 8 20 0" stroke="#7C2D12" strokeWidth="3" fill="none" strokeLinecap="round" />
-      <rect x="-30" y="-14" width="60" height="16" rx="8" fill="#0284C7" />
+      <path d="M-10 56 q10 8 20 0" stroke="#7A4B36" strokeWidth="3" fill="none" strokeLinecap="round" />
+      <rect x="-30" y="-14" width="60" height="16" rx="8" fill="#6FA6AC" />
     </g>
   );
 }
@@ -78,29 +78,29 @@ export function ExamRoom({ w, h }: { w: number; h: number }) {
     <g aria-hidden>
       <defs>
         <linearGradient id="roomWall" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#F1F5F9" />
-          <stop offset="1" stopColor="#E0F2FE" />
+          <stop offset="0" stopColor="#F8F4EC" />
+          <stop offset="1" stopColor="#EEF1EA" />
         </linearGradient>
         <linearGradient id="roomFloor" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#F8FAFC" />
-          <stop offset="1" stopColor="#E2E8F0" />
+          <stop offset="0" stopColor="#F1EBE1" />
+          <stop offset="1" stopColor="#E4DCCF" />
         </linearGradient>
       </defs>
       <rect width={w} height={h} fill="url(#roomWall)" />
       <rect y={h * 0.7} width={w} height={h * 0.3} fill="url(#roomFloor)" />
-      <line x1="0" y1={h * 0.7} x2={w} y2={h * 0.7} stroke="#CBD5E1" strokeWidth="4" />
+      <line x1="0" y1={h * 0.7} x2={w} y2={h * 0.7} stroke="#DCD4C7" strokeWidth="4" />
       {/* window */}
-      <rect x="90" y="70" width="230" height="170" rx="14" fill="#BAE6FD" stroke="#0284C7" strokeWidth="6" />
-      <path d="M205 70 V240 M90 155 H320" stroke="#0284C7" strokeWidth="6" />
-      <circle cx="270" cy="110" r="18" fill="#FEF3C7" />
+      <rect x="90" y="70" width="230" height="170" rx="14" fill="#DCEAEC" stroke="#A9BFC4" strokeWidth="6" />
+      <path d="M205 70 V240 M90 155 H320" stroke="#A9BFC4" strokeWidth="6" />
+      <circle cx="270" cy="110" r="18" fill="#FBF1DC" />
       {/* shelf with bottles */}
-      <rect x="1280" y="150" width="240" height="12" rx="6" fill="#94A3B8" />
+      <rect x="1280" y="150" width="240" height="12" rx="6" fill="#C3BBAE" />
       {[1300, 1350, 1400, 1450].map((x, i) => (
-        <rect key={x} x={x} y={150 - 40 - (i % 2) * 12} width="30" height={40 + (i % 2) * 12} rx="6" fill={['#7DD3FC', '#FDBA74', '#86EFAC', '#C4B5FD'][i]} />
+        <rect key={x} x={x} y={150 - 40 - (i % 2) * 12} width="30" height={40 + (i % 2) * 12} rx="6" fill={['#B7D3D8', '#E8C9AE', '#BFD6C0', '#D6CCE0'][i]} />
       ))}
       {/* plant */}
-      <rect x="1460" y={h * 0.7 - 70} width="60" height="70" rx="10" fill="#F97316" />
-      <path d="M1490 540 q-40 -60 -10 -110 q20 50 10 110 q30 -70 60 -90 q-10 60 -60 90" fill="#22C55E" />
+      <rect x="1460" y={h * 0.7 - 70} width="60" height="70" rx="10" fill="#D8AE96" />
+      <path d="M1490 540 q-40 -60 -10 -110 q20 50 10 110 q30 -70 60 -90 q-10 60 -60 90" fill="#93B79A" />
     </g>
   );
 }
@@ -108,11 +108,11 @@ export function ExamRoom({ w, h }: { w: number; h: number }) {
 export function ExamTable({ x, y, w = 560 }: { x: number; y: number; w?: number }) {
   return (
     <g transform={`translate(${x} ${y})`} aria-hidden>
-      <rect x="0" y="0" width={w} height="34" rx="17" fill="#0284C7" />
-      <rect x="10" y="4" width={w - 20} height="10" rx="5" fill="#7DD3FC" opacity=".6" />
-      <rect x={w * 0.12} y="34" width="22" height="150" fill="#94A3B8" />
-      <rect x={w * 0.85} y="34" width="22" height="150" fill="#94A3B8" />
-      <rect x={w * 0.08} y="180" width={w * 0.84} height="16" rx="8" fill="#64748B" />
+      <rect x="0" y="0" width={w} height="34" rx="17" fill="#7DB3B4" />
+      <rect x="10" y="4" width={w - 20} height="10" rx="5" fill="#B8DCDA" opacity=".6" />
+      <rect x={w * 0.12} y="34" width="22" height="150" fill="#BDB7AE" />
+      <rect x={w * 0.85} y="34" width="22" height="150" fill="#BDB7AE" />
+      <rect x={w * 0.08} y="180" width={w * 0.84} height="16" rx="8" fill="#A39D94" />
     </g>
   );
 }

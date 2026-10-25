@@ -33,3 +33,12 @@
 /* game setting (data attribute) and OS preference both stop every layer */
 .patient-view[data-reduced-motion='true'] *, [data-motion='reduced'] .patient-view * { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .patient-view * { animation: none !important; } }
+
+/* static cue when motion is off: a quiet dashed outline on the examined limb */
+.patient-view .pv-static-cue { fill: rgb(58 158 148 / 8%); stroke: #3A9E94; stroke-width: 2; stroke-dasharray: 6 5; pointer-events: none; }
+
+/* raster poses share one canvas; only opacity changes, so nothing jumps */
+.patient-view .pv-pose { opacity: 0; transition: opacity .12s ease-out; }
+.patient-view .pv-pose.on { opacity: 1; }
+.patient-view[data-reduced-motion='true'] .pv-pose, [data-motion='reduced'] .patient-view .pv-pose { transition: none; }
+@media (prefers-reduced-motion: reduce) { .patient-view .pv-pose { transition: none; } }

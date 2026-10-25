@@ -23,8 +23,9 @@ import { useStore } from '../store';
 import { sound } from '../audio';
 import { Flags, RefChips } from '../components/ui';
 import { FractureXRay } from '../components/art/XRay';
-import { PatientView, limbBox, limbsFromSide, raisedLimbs } from '../components/PatientView';
+import { PatientView, limbsFromSide, patientTargets } from '../components/PatientView';
 import { nextPalpation, palpationTrigger, type PalpationEvent } from '../engine/palpation';
+import { SCENE_SLOTS, sceneImage, type SceneSlotId } from './sceneAssets';
 import { DOG_LIMBS, ExamRoom, ExamTable, Owner, SceneDog, Vet, limbLength, limbRotation } from './art';
 import { DragGhost, TaskHint, ToolInfo, ToolTray, Zone, useFeedback, useTrayDrag, type ToolDef } from './ToolKit';
 import { SceneShell, usePortrait } from './SceneShell';
@@ -264,14 +265,19 @@ export function C07Clinic() {
         data-testid="clinic-stage"
         data-phase={phase}
       >
-        <ExamRoom w={W} h={H} />
+        {/* layer 1: room (PNG when delivered, otherwise the vector room) */}
+        <g data-layer="background">
+          <SlotImage id="background" fallback={<ExamRoom w={W} h={H} />} />
+        </g>
+        {/* wall props that are also targets (program-drawn, never baked into the room image) */}
+        <g data-layer="props">
         {/* reasoning whiteboard */}
         <Zone id="board" label="推理白板" accepts={[]} {...zp} onUse={() => use(null, 'board')} inactive={phase !== 'reason' && phase !== 'decide'} pop={pop === 'board'}>
           <g transform={`translate(${lay.board[0]} ${lay.board[1]})`}>
-            <rect width="300" height="180" rx="14" fill="#FFFFFF" stroke={phase === 'reason' || phase === 'decide' ? '#F97316' : '#94A3B8'} strokeWidth="8" className={phase === 'reason' || phase === 'decide' ? 'glow' : ''} />
-            <text x="150" y="50" textAnchor="middle" fontSize="30" fontWeight="700" fill="#0F172A">推理白板</text>
+            <rect width="300" height="180" rx="14" fill="#FFFFFF" stroke={phase === 'reason' || phase === 'decide' ? '#3A9E94' : '#C9C2B6'} strokeWidth="6" className={phase === 'reason' || phase === 'decide' ? 'glow' : ''} />
+            <text x="150" y="50" textAnchor="middle" fontSize="30" fontWeight="700" fill="#3F3A36">推理白板</text>
             <path d="M40 90 h220 M40 120 h180 M40 150 h140" stroke="#CBD5E1" strokeWidth="8" strokeLinecap="round" />
-            {(phase === 'reason' || phase === 'decide') && <text x="150" y="172" textAnchor="middle" fontSize="20" fill="#C2410C">點我開始</text>}
+            {(phase === 'reason' || phase === 'decide') && <text x="150" y="172" textAnchor="middle" fontSize="20" fill="#2C7A72">點我開始</text>}
           </g>
         </Zone>
         {/* lightbox appears after the X-ray */}
@@ -284,14 +290,24 @@ export function C07Clinic() {
             </g>
           </Zone>
         )}
-        <ExamTable x={540} y={520} w={600} />
-        {/* owner */}
-        <Zone id="owner" label="飼主" accepts={['chart']} {...zp} pop={pop === 'owner'}>
+        </g>
+        {/* layer 2: people behind the table */}
+        <g data-layer="people">
           <g className="enter-left">
-            <rect className="limb-outline" x={lay.owner - 100} y="270" width="200" height="420" rx="40" />
-            <Owner x={lay.owner} y={290} talking={phase === 'intake'} />
+            <SlotImage id="owner" fallback={<Owner x={lay.owner} y={290} talking={phase === 'intake'} />} dx={lay.owner - 340} />
           </g>
-        </Zone>
+          <SlotImage id="vet" fallback={<Vet x={lay.vet} y={290} wave={phase === 'decide'} />} dx={lay.vet - 1340} />
+        </g>
+        {/* layer 3: exam table */}
+        <g data-layer="table">
+          <SlotImage id="table" fallback={<ExamTable x={540} y={520} w={600} />} />
+        </g>
+        {/* layer 6: interaction targets (transparent, scene coordinates) */}
+        <g data-layer="interaction">
+          <Zone id="owner" label="飼主" accepts={['chart']} {...zp} pop={pop === 'owner'}>
+            <rect className="limb-outline" x={lay.owner - 100} y="270" width="200" height="420" rx="40" />
+          </Zone>
+        </g>
         {!heard && (
           <g className="bubble" transform={`translate(${lay.bubble[0]} ${lay.bubble[1]})`}>
             <rect width="440" height="104" rx="22" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="3" />
@@ -300,7 +316,8 @@ export function C07Clinic() {
             <text x="24" y="80" fontSize="26" fill="#0F172A">左前腳就不敢踩了…</text>
           </g>
         )}
-        <Vet x={lay.vet} y={290} wave={phase === 'decide'} />
+        {/* layers 4–5: patient + contact shadow, with its own limb targets on top */}
+        <g data-layer="patient">
         {/* on the table: the seated patient illustration with tool targets laid over it */}
         {/* kept mounted (only hidden) during the gait walk so its animations never restart */}
         {dogOnTable && (
@@ -325,6 +342,7 @@ export function C07Clinic() {
             {dogOnTable && <LimbZones zp={zp} scale={dogScale} pop={pop} localized={localized} />}
           </g>
         </g>}
+        </g>
       </svg>
       <DragGhost drag={drag} tools={tools} />
       {panel === 'xray' && (
@@ -339,6 +357,14 @@ export function C07Clinic() {
   );
 }
 
+/** A scene layer: the delivered PNG in its scene box, or the vector fallback. `dx` shifts the box for the portrait layout. */
+function SlotImage({ id, fallback, dx = 0 }: { id: SceneSlotId; fallback: React.ReactNode; dx?: number }) {
+  const url = sceneImage(id);
+  if (!url) return <g data-art="vector" data-slot={id}>{fallback}</g>;
+  const r = SCENE_SLOTS[id].rect;
+  return <image href={url} x={r.x + dx} y={r.y} width={r.width} height={r.height} preserveAspectRatio="xMidYMax meet" data-art="raster" data-slot={id} />;
+}
+
 const LIMBS: Limb[] = ['RH', 'LH', 'RF', 'LF']; // forelimbs last so they win overlapping hits
 // scene units: paws on the table top (y 520), clear of the whiteboard on the right
 const PV = { x: 610, y: 109, size: 420 };
@@ -347,7 +373,8 @@ const PV = { x: 610, y: 109, size: 420 };
 function TablePatient({ hidden, zp, pop, localized, trigger, reducedMotion }: { hidden: boolean; zp: { selected: string | null; hover: string | null; onUse: (z: string) => void }; pop: string | null; localized: boolean; trigger: number; reducedMotion: boolean }) {
   const c = caseById(CASE)!;
   const affected = limbsFromSide(c.side);
-  const raised = new Set(raisedLimbs(c.pose, affected));
+  // the same boxes PatientView draws with (raster manifest or vector geometry), in its viewBox units
+  const targets = patientTargets(c.species, c.breed, c.pose, affected);
   const k = PV.size / 340;
   return (
     <g data-testid="table-patient" className="fade-in" style={hidden ? { opacity: 0, pointerEvents: 'none' } : undefined} aria-hidden={hidden || undefined}>
@@ -364,7 +391,7 @@ function TablePatient({ hidden, zp, pop, localized, trigger, reducedMotion }: { 
       />
       <g transform={`translate(${PV.x} ${PV.y}) scale(${k})`}>
         <Zone id="dog" label="病患身體" accepts={['observe']} {...zp} pop={pop === 'dog'}>
-          <rect className="limb-outline" x="100" y="40" width="140" height="290" rx="64" />
+          <rect className="limb-outline" {...targets.body} rx="64" />
         </Zone>
         {LIMBS.map((l) => (
           <Zone
@@ -376,7 +403,7 @@ function TablePatient({ hidden, zp, pop, localized, trigger, reducedMotion }: { 
             pop={pop === `limb-${l}`}
             done={localized && l === 'LF'}
           >
-            <rect className="limb-outline" {...limbBox(l, raised.has(l))} rx="22" />
+            <rect className="limb-outline" {...targets.limbs[l]} rx="22" />
           </Zone>
         ))}
       </g>

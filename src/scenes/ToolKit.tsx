@@ -259,16 +259,21 @@ export function useHold(ms: number, onComplete: (target: string) => void) {
 }
 
 export function TaskHint({ text, fb }: { text: string; fb: Feedback | null }) {
+  // one main instruction (top-left card); the latest result is a separate card so the task stays a single line
   return (
-    <div className="task-hint" role="status" aria-live="polite" data-testid="task-hint">
-      <div className="task-now">
-        <span aria-hidden>➜</span> <b data-testid="task-text">{text}</b>
-      </div>
-      {fb && (
-        <div key={fb.n} className={`task-fb ${fb.kind}`} data-testid="task-feedback" data-kind={fb.kind}>
-          <span aria-hidden>{fb.kind === 'ok' ? '✓' : fb.kind === 'warn' ? '△' : 'ℹ'}</span> {fb.text}
+    <>
+      <div className="task-hint" data-testid="task-hint">
+        <div className="task-now">
+          <span aria-hidden>➜</span> <b data-testid="task-text">{text}</b>
         </div>
-      )}
-    </div>
+      </div>
+      <div role="status" aria-live="polite" className="task-fb-slot">
+        {fb && (
+          <div key={fb.n} className={`task-fb ${fb.kind}`} data-testid="task-feedback" data-kind={fb.kind}>
+            <span aria-hidden>{fb.kind === 'ok' ? '✓' : fb.kind === 'warn' ? '△' : 'ℹ'}</span> {fb.text}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

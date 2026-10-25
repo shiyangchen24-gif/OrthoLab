@@ -12,9 +12,10 @@
 // Nested groups keep animations from overriding each other:
 //   limb-root (static pose) > limping-tremor > palpation-withdraw > artwork
 
-import { useId, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { PatientPose, Species } from '../types';
 import { LIMB_LABEL, type Limb } from '../data/caseMeta';
+import { posePlan, resolvePatientArt, type HitBox, type PoseKey, type ResolvedArt } from './patientAssets';
 import './PatientView.css';
 
 export interface PatientViewProps {
@@ -33,7 +34,12 @@ export interface PatientViewProps {
   nested?: { x: number; y: number };
   /** Scene hook: extra artwork drawn inside a limb (e.g. a tag). */
   limbOverlay?: (limb: Limb) => ReactNode;
+  /** Raster art override (tests); undefined = look up the bundled PNGs, null = force the vector art. */
+  art?: ResolvedArt | null;
 }
+
+/** Length of the raster withdrawal pose before it returns to rest (ms). */
+export const WITHDRAW_MS = 650;
 
 /** Parse the case's 患側 text into anatomical limbs. Unknown text returns []: never guess. */
 export function limbsFromSide(side: string): Limb[] {
@@ -132,6 +138,23 @@ export function limbBox(limb: Limb, raised: boolean): { x: number; y: number; wi
   return { x: limb.startsWith('R') ? 340 - x - width : x, y, width, height };
 }
 
+/** Tool-target boxes (viewBox units) for whichever art PatientView will draw for this patient. */
+export function patientTargets(
+  species: Species,
+  breed: string,
+  pose: PatientPose,
+  affected: readonly Limb[],
+  art?: ResolvedArt | null,
+): { art: 'raster' | 'vector'; limbs: Record<Limb, HitBox>; body: HitBox } {
+  const raised = raisedLimbs(pose, affected);
+  const { rest } = posePlan(raised, affected);
+  const r = art === undefined ? resolvePatientArt(species, breed) : art;
+  const boxes = r?.urls[rest] ? r.spec.limbBoxes[rest] : undefined;
+  if (r && boxes) return { art: 'raster', limbs: boxes, body: r.spec.bodyBox };
+  const limbs = Object.fromEntries((['LF', 'RF', 'LH', 'RH'] as Limb[]).map((l) => [l, limbBox(l, raised.includes(l))])) as Record<Limb, HitBox>;
+  return { art: 'vector', limbs, body: { x: 100, y: 40, width: 140, height: 290 } };
+}
+
 // forelimb (screen-right = patient's LEFT template; flip for the right limb)
 const FORE_STAND = ['M', 180, 224, 'C', 178, 256, 184, 290, 182, 314, 'C', 170, 318, 168, GROUND, 184, GROUND, 'L', 206, GROUND, 'C', 218, GROUND, 218, 320, 206, 314, 'C', 208, 290, 214, 254, 212, 224, 'C', 206, 212, 186, 212, 180, 224, 'Z'];
 // flexed carpus, paw held clear of the ground
@@ -153,6 +176,7 @@ export function PatientView({
   label,
   nested,
   limbOverlay,
+  art,
 }: PatientViewProps) {
   const uid = `pv${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const look = LOOKS[breed] ?? (species === '貓' ? DEFAULT_CAT : DEFAULT_DOG);
@@ -160,6 +184,26 @@ export function PatientView({
   const affected = new Set(affectedLimbs);
   const raised = new Set(raisedLimbs(pose, affectedLimbs));
   const uncomfortable = raised.size > 0;
+
+  // ---------------------------------------------------------- raster art
+  const plan = posePlan([...raised], affectedLimbs);
+  const resolved = art === undefined ? resolvePatientArt(species, breed) : art;
+  // only switch to raster when the case's resting pose exists; never mix with vector parts
+  const raster = resolved && resolved.urls[plan.rest] ? resolved : null;
+  const [withdrawing, setWithdrawing] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  const seen = useRef(palpationTrigger);
+  useEffect(() => {
+    // one pose swap per new trigger; a newer trigger restarts the timer instead of queueing
+    if (palpationTrigger === seen.current) return;
+    seen.current = palpationTrigger;
+    if (palpationTrigger <= 0 || reducedMotion) return;
+    window.clearTimeout(timer.current);
+    setWithdrawing(true);
+    timer.current = window.setTimeout(() => setWithdrawing(false), WITHDRAW_MS);
+  }, [palpationTrigger, reducedMotion]);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const staticCue = reducedMotion && palpationTrigger > 0;
   const g = (name: string) => `${uid}-${name}`;
   // gradient ids live in their own namespace so they never collide with layer ids (e.g. head)
   const fillId = (name: string) => g(`fill-${name}`);
@@ -192,6 +236,7 @@ export function PatientView({
         <path d={fore && !isRaised ? pathOf(['M', 192, 248, 'Q', 190, 276, 193, 300], flip) : fore ? pathOf(['M', 192, 246, 'Q', 196, 266, 206, 276], flip) : pathOf(['M', 222, 268, 'Q', 238, 284, 234, 304], flip)} fill="none" stroke={tone[2]} strokeOpacity=".28" strokeWidth="2" strokeLinecap="round" />
         <path d={toes} stroke={tone[2]} strokeOpacity=".6" strokeWidth="1.5" strokeLinecap="round" fill="none" />
         {look.coat === 'silky' && !isRaised && fore && <path d={pathOf(['M', 180, 300, 'q', 4, 12, 2, 22, 'M', 210, 298, 'q', -3, 12, 0, 22], flip)} stroke={tone[2]} strokeOpacity=".3" strokeWidth="1.4" fill="none" />}
+        {injured && staticCue && <rect className="pv-static-cue" {...limbBox(side, isRaised)} rx="20" data-testid="palpation-static-cue" />}
         {limbOverlay?.(side)}
       </>
     );
@@ -375,6 +420,7 @@ export function PatientView({
       data-pose={pose}
       data-raised={[...raised].join(' ')}
       data-palpation={palpationTrigger}
+      data-art={raster ? 'raster' : 'vector'}
       data-testid="patient-view"
       className={`patient-view ${nested ? 'nested' : ''}`}
     >
@@ -419,6 +465,19 @@ export function PatientView({
       {!nested && <ellipse cx="170" cy="210" rx="160" ry="160" fill={url('halo')} />}
       {/* ground shadow */}
       <path d={`M80 ${GROUND + 2} C110 ${GROUND - 6} 230 ${GROUND - 6} 276 ${GROUND + 2} C230 ${GROUND + 10} 110 ${GROUND + 10} 80 ${GROUND + 2} Z`} fill="#4B5A5E" opacity=".12" />
+      {raster ? (
+        <RasterFigure
+          art={raster}
+          rest={plan.rest}
+          withdraw={plan.withdraw}
+          withdrawing={withdrawing}
+          affected={affected}
+          raised={raised}
+          staticCue={staticCue}
+          blurId={fillId('contact-blur')}
+          limbOverlay={limbOverlay}
+        />
+      ) : (
       <g className="patient-figure" strokeLinejoin="round" strokeLinecap="round">
         {look.tail !== 'cat' && (
           // a resting tail lies on the far side of a lifted left hind paw so the two never merge
@@ -441,6 +500,7 @@ export function PatientView({
         )}
         {head}
       </g>
+      )}
     </svg>
   );
 
@@ -455,6 +515,60 @@ export function PatientView({
         </figcaption>
       )}
     </figure>
+  );
+}
+
+/** Hand-painted PNG poses on one shared canvas, with a separate contact shadow and limb targets. */
+function RasterFigure({
+  art,
+  rest,
+  withdraw,
+  withdrawing,
+  affected,
+  raised,
+  staticCue,
+  blurId,
+  limbOverlay,
+}: {
+  art: ResolvedArt;
+  rest: PoseKey;
+  withdraw: PoseKey | null;
+  withdrawing: boolean;
+  affected: Set<Limb>;
+  raised: Set<Limb>;
+  staticCue: boolean;
+  blurId: string;
+  limbOverlay?: (limb: Limb) => ReactNode;
+}) {
+  const active: PoseKey = withdrawing && withdraw && art.urls[withdraw] ? withdraw : rest;
+  // both poses stay loaded and stacked so a swap never flashes, shifts or reloads
+  const poses = [rest, ...(withdraw && art.urls[withdraw] ? [withdraw] : [])];
+  const boxes = art.spec.limbBoxes[active] ?? art.spec.limbBoxes[rest];
+  return (
+    <g className="patient-figure raster" data-active-pose={active}>
+      <filter id={blurId} x="-20%" y="-200%" width="140%" height="500%">
+        <feGaussianBlur stdDeviation="4" />
+      </filter>
+      <g data-layer="contact-shadow">
+        <ellipse cx="170" cy={GROUND + 1} rx="88" ry="8" fill="#5A4A3C" opacity=".24" filter={`url(#${blurId})`} />
+      </g>
+      <g data-layer="patient">
+        {poses.map((k) => (
+          <image key={k} href={art.urls[k]} x="0" y="0" width="340" height="380" preserveAspectRatio="xMidYMid meet" data-pose={k} className={k === active ? 'pv-pose on' : 'pv-pose'} />
+        ))}
+      </g>
+      {(['RH', 'LH', 'RF', 'LF'] as Limb[]).map((side) => {
+        const injured = affected.has(side);
+        const box = boxes?.[side];
+        return (
+          <g key={side} className="pv-limb" data-limb={side} data-part={injured ? 'injured-limb' : 'limb'} data-raised={raised.has(side) ? 'true' : 'false'} data-weight-bearing={raised.has(side) ? 'false' : 'true'}>
+            <title>{`${LIMB_LABEL[side]}${injured ? '（病例患肢）' : ''}`}</title>
+            {box && injured && staticCue && <rect className="pv-static-cue" {...box} rx="20" data-testid="palpation-static-cue" />}
+            {limbOverlay?.(side)}
+          </g>
+        );
+      })}
+    </g>
   );
 }
 
