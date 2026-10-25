@@ -374,10 +374,19 @@ const browser = await chromium.launch();
   assert((await tablePv.getAttribute('data-palpation')) === '0', 'palpating a non-affected limb plays no withdrawal');
   await sceneUse(page, 'palpate', 'limb-LF');
   const fbPalp = await page.locator(tid('task-feedback')).textContent();
-  assert((await tablePv.getAttribute('data-palpation')) === '1' && (await tablePv.locator('[data-limb="LF"] .palpation-withdraw').count()) === 1, 'valid palpation plays the withdrawal on the left forelimb only');
+  if ((await tablePv.getAttribute('data-art')) === 'raster') {
+    // painted art: the aligned withdrawal pose shows briefly, then the lifted pose returns
+    const poseNow = () => tablePv.locator('[data-active-pose]').getAttribute('data-active-pose');
+    assert((await tablePv.getAttribute('data-palpation')) === '1' && (await poseNow()) === 'withdraw-LF', 'valid palpation swaps to the left-forelimb withdrawal pose');
+    await page.waitForTimeout(900);
+    assert((await poseNow()) === 'lift-LF', 'withdrawal pose returns to the lifted rest pose');
+  } else {
+    assert((await tablePv.getAttribute('data-palpation')) === '1' && (await tablePv.locator('[data-limb="LF"] .palpation-withdraw').count()) === 1, 'valid palpation plays the withdrawal on the left forelimb only');
+  }
   await page.screenshot({ path: `${OUT}/C07-palpation.png` });
   await sceneUse(page, 'palpate', 'limb-LF');
   assert((await tablePv.getAttribute('data-palpation')) === '1', 'repeated palpation does not replay the withdrawal');
+  if ((await tablePv.getAttribute('data-art')) === 'raster') assert((await tablePv.locator('[data-active-pose]').getAttribute('data-active-pose')) === 'lift-LF', 'repeated palpation keeps the rest pose');
   assert((await page.locator(tid('task-feedback')).getAttribute('data-kind')) === 'info' && fbPalp.includes('觸診'), 'repeated palpation does not add progress');
   await sceneUse(page, 'xray', 'limb-LF');
   assert((await page.locator(tid('scene-overlay')).locator('.xray').count()) === 2, 'X-ray opens two orthogonal teaching views');

@@ -29,7 +29,7 @@ CHARACTERS = {
     "maltese": {"canvas": (1020, 1140), "baseline_y": 1002, "poses": ["sit.png", "lift-LF.png", "withdraw-LF.png"]},
 }
 SCENE = {
-    "clinic-room.png": {"canvas": (4800, 2700), "opaque": True},
+    "clinic-room.png": {"canvas": (1536, 864), "opaque": True},
     "owner.png": {"canvas": (660, 1260), "opaque": False},
     "vet.png": {"canvas": (660, 1260), "opaque": False},
     "exam-table.png": {"canvas": (1920, 690), "opaque": False},

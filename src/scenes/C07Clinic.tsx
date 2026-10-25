@@ -37,8 +37,8 @@ const DESK_VB = `0 0 ${W} ${H}`;
 const PORTRAIT_VB = '430 40 780 900';
 /** Portrait phones get their own composition (not a shrunken desktop): everyone moves inside a narrow crop. */
 const LAYOUT = {
-  desk: { board: [930, 80], lightbox: [1260, 110], owner: 340, bubble: [410, 190], vet: 1340, dogFloor: [430, 400] },
-  portrait: { board: [760, 60], lightbox: [460, 70], owner: 560, bubble: [600, 260], vet: 1260, dogFloor: [620, 400] },
+  desk: { board: [930, 80], lightbox: [1260, 110], owner: 340, bubble: [40, 150], vet: 1340, dogFloor: [430, 400] },
+  portrait: { board: [760, 60], lightbox: [460, 70], owner: 560, bubble: [450, 752], vet: 1260, dogFloor: [620, 400] },
 };
 
 const E = (n: number) => `${CASE}-E${n}`;
@@ -79,6 +79,7 @@ export function C07Clinic() {
   const [pop, setPop] = useState<string | null>(null);
   const has = (n: number) => s.revealed.includes(E(n));
   const localized = isLocalized(s);
+  const paintedPatient = patientTargets(c.species, c.breed, c.pose, limbsFromSide(c.side)).art === 'raster';
 
   const flash = (zone: string) => {
     setPop(zone);
@@ -185,8 +186,11 @@ export function C07Clinic() {
           if (!onDog) return say('warn', '步態觀察要對著病患使用。');
           if (has(1)) return say('info', '步態已觀察過，可在病歷重讀。');
           reveal(1);
-          setWalking(true);
-          window.setTimeout(() => setWalking(false), 1600);
+          // the side-view gait walk exists only for the vector dog; painted art never swaps to another style
+          if (!paintedPatient) {
+            setWalking(true);
+            window.setTimeout(() => setWalking(false), 1600);
+          }
           sound.play('reveal');
           flash('dog');
           return say('ok', `步態：${result(1)}`);
@@ -238,7 +242,8 @@ export function C07Clinic() {
   }, [phase, s.revealed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const zp = { selected, hover, onUse: (z: string) => use(selected, z) };
-  const dogOnTable = heard;
+  // painted patient art waits on the table from the start (no vector walk-in in a painted scene)
+  const dogOnTable = heard || paintedPatient;
   const dogScale = 1.25;
   const lay = portrait ? LAYOUT.portrait : LAYOUT.desk;
 
@@ -309,11 +314,18 @@ export function C07Clinic() {
           </Zone>
         </g>
         {!heard && (
-          <g className="bubble" transform={`translate(${lay.bubble[0]} ${lay.bubble[1]})`}>
-            <rect width="440" height="104" rx="22" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="3" />
-            <path d="M40 104 l-20 34 l50 -34 z" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="3" />
-            <text x="24" y="44" fontSize="26" fill="#0F172A">醫師，雪球從沙發跳下來後</text>
-            <text x="24" y="80" fontSize="26" fill="#0F172A">左前腳就不敢踩了…</text>
+          // placement lives on the outer group: the pop animation's CSS transform would override it on the same element
+          <g transform={`translate(${lay.bubble[0]} ${lay.bubble[1]})`} data-testid="owner-bubble">
+            <g className="bubble">
+              <rect width="440" height="104" rx="22" fill="#FFFCF6" stroke="#E6DED2" strokeWidth="3" />
+              {portrait ? (
+                <path d="M100 0 l10 -34 l40 34 z" fill="#FFFCF6" stroke="#E6DED2" strokeWidth="3" />
+              ) : (
+                <path d="M270 104 l30 34 l10 -34 z" fill="#FFFCF6" stroke="#E6DED2" strokeWidth="3" />
+              )}
+              <text x="24" y="44" fontSize="26" fill="#3F3A36">醫師，雪球從沙發跳下來後</text>
+              <text x="24" y="80" fontSize="26" fill="#3F3A36">左前腳就不敢踩了…</text>
+            </g>
           </g>
         )}
         {/* layers 4–5: patient + contact shadow, with its own limb targets on top */}
@@ -387,7 +399,7 @@ function TablePatient({ hidden, zp, pop, localized, trigger, reducedMotion }: { 
         affectedLimbs={affected}
         palpationTrigger={trigger}
         reducedMotion={reducedMotion}
-        limbOverlay={(l) => (localized && l === 'LF' ? <TagMark x={214} y={236} /> : null)}
+        limbOverlay={(l) => (localized && l === 'LF' ? <TagMark x={targets.limbs.LF.x + targets.limbs.LF.width - 18} y={targets.limbs.LF.y + 18} /> : null)}
       />
       <g transform={`translate(${PV.x} ${PV.y}) scale(${k})`}>
         <Zone id="dog" label="病患身體" accepts={['observe']} {...zp} pop={pop === 'dog'}>

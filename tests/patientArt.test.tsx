@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PatientView, WITHDRAW_MS, limbsFromSide, patientTargets, raisedLimbs } from '../src/components/PatientView';
 import { CHARACTER_ART, missingArt, posePlan, resolvePatientArt } from '../src/components/patientAssets';
@@ -15,12 +16,27 @@ const ALL = { 'maltese/sit.png': PNG + '#sit', 'maltese/lift-LF.png': PNG + '#li
 const fixture = (files: Record<string, string>) => resolvePatientArt('犬', '瑪爾濟斯', files);
 
 describe('raster art manifest', () => {
-  it('nothing is bundled yet, so every patient keeps the vector art and the gap is reported', () => {
-    expect(resolvePatientArt('犬', '瑪爾濟斯')).toBeNull();
-    expect(missingArt().map((m) => m.id)).toContain('maltese');
-    expect(missingSceneArt()).toHaveLength(Object.keys(SCENE_SLOTS).length);
-    expect(sceneImage('background')).toBeNull();
-    for (const a of CHARACTER_ART) expect(a.status).toBe('pending'); // never claim art that was not delivered
+  it('bundled art: the Maltese poses, room and vet are delivered; owner and table still fall back', () => {
+    const art = resolvePatientArt('犬', '瑪爾濟斯')!;
+    expect(Object.keys(art.urls).sort()).toEqual(['lift-LF', 'sit', 'withdraw-LF']);
+    expect(missingArt()).toEqual([]);
+    expect(sceneImage('background')).not.toBeNull();
+    expect(sceneImage('vet')).not.toBeNull();
+    expect(missingSceneArt().sort()).toEqual(['src/assets/scene/exam-table.png', 'src/assets/scene/owner.png']);
+    // status follows the files: delivered only when every pose exists
+    for (const a of CHARACTER_ART) expect(a.status).toBe(missingArt().some((m) => m.id === a.id) ? 'pending' : 'delivered');
+    // other breeds have no raster art and keep the vector character
+    expect(resolvePatientArt('犬', '約克夏')).toBeNull();
+    expect(resolvePatientArt('貓', '米克斯（短毛貓）')).toBeNull();
+  });
+
+  it('C07 with the bundled art: raster, only the left forelimb raised, targets from the manifest', () => {
+    const d = document.createElement('div');
+    d.innerHTML = renderToStaticMarkup(<PatientView species="犬" breed="瑪爾濟斯" pose="fore-lift" affectedLimbs={['LF']} />);
+    expect(d.querySelector('svg')!.getAttribute('data-art')).toBe('raster');
+    expect(d.querySelector('[data-active-pose]')!.getAttribute('data-active-pose')).toBe('lift-LF');
+    expect([...d.querySelectorAll('[data-raised="true"]')].map((e) => e.getAttribute('data-limb'))).toEqual(['LF']);
+    expect(patientTargets('犬', '瑪爾濟斯', 'fore-lift', ['LF']).limbs.LF).toEqual(CHARACTER_ART[0].limbBoxes['lift-LF']!.LF);
   });
 
   it('pose plan: single raised limb lifts it; bilateral, asymptomatic and unknown sides stay seated', () => {

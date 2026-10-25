@@ -2,7 +2,8 @@
    transforms never override each other or the static pose:
    torso > .breathing · eye > .patient-blink · limb > .limping-tremor > .palpation-withdraw */
 .patient-view:not(.nested) { display: block; max-width: 100%; height: auto; overflow: visible; margin: 0 auto; }
-.patient-view.nested { overflow: visible; }
+/* in a scene the art never takes input: tool targets are a separate transparent layer */
+.patient-view.nested { overflow: visible; pointer-events: none; }
 .patient-view-wrap { max-width: 100%; }
 .patient-view .patient-figure { filter: drop-shadow(0 4px 3px rgb(70 60 50 / 10%)); }
 

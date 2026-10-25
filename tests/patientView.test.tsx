@@ -19,11 +19,12 @@ function host(): HTMLElement {
   return d;
 }
 
+// these tests cover the vector art (layers, CSS animation); raster art is covered in patientArt.test.tsx
 function renderCase(id: string, extra: Partial<Parameters<typeof PatientView>[0]> = {}): HTMLElement {
   const c = caseById(id)!;
   const d = host();
   d.innerHTML = renderToStaticMarkup(
-    <PatientView species={c.species} breed={c.breed} pose={c.pose} affectedLimbs={limbsFromSide(c.side)} {...extra} />,
+    <PatientView species={c.species} breed={c.breed} pose={c.pose} affectedLimbs={limbsFromSide(c.side)} art={null} {...extra} />,
   );
   return d;
 }

@@ -52,9 +52,9 @@ C07 小型犬橈尺骨骨折是場景式示範關卡：中央是診所／手術�
 
 其他病例沿用原本的畫面與流程；判定引擎、存檔與評分完全共用。
 
-## 手繪素材（接入架構已完成，素材待交付）
+## 手繪素材
 
-C07 診間已拆成背景、人物、檢查台、病患＋接觸陰影、互動命中區與 HTML 介面等獨立圖層。把透明 PNG 放進 `src/assets/patients/` 或 `src/assets/scene/` 並重新建置，就會自動取代向量版；缺件時沿用向量版，不會破圖。驗證素材：`python3 -I scripts/check_patient_assets.py`。規格、缺件清單與授權見 [docs/art-assets.md](docs/art-assets.md)。
+C07 診間已拆成背景、人物、檢查台、病患＋接觸陰影、互動命中區與 HTML 介面等獨立圖層，已使用 ChatGPT 生成的瑪爾濟斯、診間背景與獸醫素材（飼主、檢查台待提供）。把透明 PNG 放進 `src/assets/patients/` 或 `src/assets/scene/` 並重新建置，就會自動取代向量版；缺件時沿用向量版，不會破圖。驗證素材：`python3 -I scripts/check_patient_assets.py`。規格、缺件清單與授權見 [docs/art-assets.md](docs/art-assets.md)。
 
 ## 可玩內容
 

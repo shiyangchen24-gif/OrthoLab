@@ -59,13 +59,6 @@ export interface CharacterArtSpec {
 export const ART_CANVAS = { width: 1020, height: 1140 } as const;
 export const ART_VIEWBOX = { width: 340, height: 380 } as const;
 
-const STANDING: Record<Limb, HitBox> = {
-  RF: { x: 118, y: 208, width: 58, height: 128 },
-  LF: { x: 164, y: 208, width: 58, height: 128 },
-  RH: { x: 76, y: 252, width: 70, height: 84 },
-  LH: { x: 194, y: 252, width: 70, height: 84 },
-};
-
 export const CHARACTER_ART: CharacterArtSpec[] = [
   {
     id: 'maltese',
@@ -77,15 +70,16 @@ export const CHARACTER_ART: CharacterArtSpec[] = [
     canvas: { ...ART_CANVAS },
     baseline: { x: 510, y: 1002 },
     poses: { sit: 'sit.png', 'lift-LF': 'lift-LF.png', 'withdraw-LF': 'withdraw-LF.png' },
+    // measured on the delivered art (viewBox units = canvas px / 3)
     limbBoxes: {
-      sit: STANDING,
-      'lift-LF': { ...STANDING, LF: { x: 174, y: 208, width: 76, height: 82 } },
-      'withdraw-LF': { ...STANDING, LF: { x: 170, y: 200, width: 76, height: 82 } },
+      sit: { RF: { x: 106, y: 200, width: 50, height: 134 }, LF: { x: 156, y: 200, width: 50, height: 134 }, RH: { x: 64, y: 258, width: 46, height: 74 }, LH: { x: 206, y: 262, width: 48, height: 70 } },
+      'lift-LF': { RF: { x: 106, y: 200, width: 52, height: 134 }, LF: { x: 172, y: 194, width: 64, height: 74 }, RH: { x: 64, y: 258, width: 46, height: 74 }, LH: { x: 198, y: 272, width: 60, height: 60 } },
+      'withdraw-LF': { RF: { x: 106, y: 200, width: 52, height: 134 }, LF: { x: 168, y: 188, width: 64, height: 70 }, RH: { x: 64, y: 258, width: 46, height: 74 }, LH: { x: 198, y: 272, width: 60, height: 60 } },
     },
-    bodyBox: { x: 100, y: 40, width: 140, height: 290 },
-    source: '待製作：原創手繪風格素材（依使用者提供之 C07 參考圖風格，不得直接裁切參考圖）',
-    license: '待確認（交付時填寫作者與授權）',
-    status: 'pending',
+    bodyBox: { x: 84, y: 22, width: 170, height: 232 },
+    source: '使用者以 ChatGPT 生成三個對齊姿態（OrthoLab 依規格縮放並對齊腳掌基線）',
+    license: '由 ChatGPT 生成，使用者提供',
+    status: 'delivered',
   },
 ];
 
