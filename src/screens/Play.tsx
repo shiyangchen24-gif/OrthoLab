@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { caseById, cases, moduleById, optionsForCase, referenceById, techniqueById } from '../data';
 import { CARE_DECKS, NONSURGICAL_DECKS } from '../data/careDecks';
 import { EXPLAIN_ROUTES } from '../data/routes';
-import { activeProcedure, finishCare, finishExplain, finishModule, stageScores, totalScore, type ModuleResult } from '../engine/session';
+import { activeProcedure, decisionScore, finishCare, finishExplain, finishModule, quizScore, stageScores, totalScore, type ModuleResult } from '../engine/session';
+import { improvements as rankImprovements } from '../engine/improve';
+import { guideFor } from '../engine/guide';
+import { GuideBar } from '../components/GuideBar';
+import { CASE_META } from '../data/caseMeta';
 import { ANSWER_LABEL, type LearningRecord } from '../types';
 import { Clinic, FLOW, flowIndex } from './Clinic';
 import { T09Fracture } from '../modules/T09Fracture';
@@ -56,8 +60,11 @@ function StageFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="stack">
       <Stepper steps={FLOW} current={flowIndex(s)} done={(i) => i < flowIndex(s)} />
+      <GuideBar step={guideFor(s)} />
       <div className="row small muted">
-        <span>病例 {c.id}・{c.species}・{c.breed}・{c.side}</span>
+        <span>
+          {CASE_META[c.id]?.name ?? ''}・病例 {c.id}・{c.species}・{c.breed}・{c.side}
+        </span>
         <span className="tag fiction">虛構教學病例</span>
       </div>
       {children}
@@ -179,15 +186,13 @@ function Results() {
   const opts = optionsForCase(s.caseId);
   const scored = opts.find((o) => o.id === s.scoredOptionId);
   const finalOpt = opts.find((o) => o.id === s.activeOptionId);
-  const preferred = opts.find((o) => o.category === 'preferred')!;
   const deck = proc === 'PROC-NONSURGICAL' ? NONSURGICAL_DECKS[s.caseId] : proc ? CARE_DECKS[proc] : undefined;
   const first = data.first[s.caseId];
-  const improvements: string[] = [];
-  if (s.prematureDecisions) improvements.push(`有 ${s.prematureDecisions} 次在必做線索完成前就作答：先蒐集線索再推理。`);
-  if (scored && scored.category !== 'preferred') improvements.push(`首次計分作答為「${ANSWER_LABEL[scored.category]}」：${scored.feedback} 本病例優先方案為「${preferred.name}」。`);
-  const insufficient = s.decisions.filter((d) => d.outcome === 'insufficient').map((d) => opts.find((o) => o.id === d.optionId)!);
-  for (const o of insufficient) improvements.push(`「${o.name}」為條件不足（不計分）：${o.missingInfo.join('；')}`);
-  improvements.push(...(s.moduleResult?.notes ?? []), ...(s.careResult?.notes ?? []));
+  const improvements = rankImprovements(s);
+  const top = improvements.slice(0, 2);
+  const rest = improvements.slice(2);
+  const dec = decisionScore(s);
+  const qz = quizScore(s);
   const refs = Array.from(new Set([...c.referenceIds, ...(finalOpt?.referenceIds ?? [])])).filter((id) => referenceById(id));
   const idx = cases.findIndex((x) => x.id === c.id);
   const nextCase = cases[(idx + 1) % cases.length];
@@ -201,8 +206,12 @@ function Results() {
         </div>
         <p className="small muted">以下為本關教學評分，分開呈現各階段，不代表治療成功率或臨床能力認證。</p>
         <div className="scores">
-          <ScoreTile label="檢查" value={scores.exam} />
-          <ScoreTile label="推理" value={scores.reasoning} note={scored ? ANSWER_LABEL[scored.category] : '尚無計分作答'} />
+          <ScoreTile label="檢查與定位" value={scores.exam} />
+          <ScoreTile
+            label="推理"
+            value={scores.reasoning}
+            note={`處置 ${dec ?? '—'}${scored ? `（${ANSWER_LABEL[scored.category]}）` : ''}・判斷題 ${qz ?? '—'}`}
+          />
           <ScoreTile label="操作" value={scores.operation} note={scores.operation === null ? (proc === 'PROC-NONSURGICAL' ? '非手術病例：不扣分' : '此路線無操作模組') : undefined} />
           <ScoreTile label="照護" value={scores.care} note={scores.care === null ? '此路線未進入照護關卡' : undefined} />
           <ScoreTile label="平均（只計有分數的階段）" value={total} />
@@ -217,8 +226,32 @@ function Results() {
           </div>
         )}
         {!deck && <div className="banner"><span aria-hidden>📅</span><span>模擬情境：已安排後續評估與轉介。此為教學模擬，不代表實際病程。</span></div>}
-        <h3>可改善之處</h3>
-        {improvements.length ? <ul>{improvements.map((x) => <li key={x}>{x}</li>)}</ul> : <p>本次各階段首次作答都達到最佳評價。</p>}
+        <section data-guide="improve" aria-label="最值得改善">
+          <h3>最值得改善</h3>
+          {top.length ? (
+            <ol data-testid="improve-top">
+              {top.map((x) => (
+                <li key={x.text}>
+                  <span className="tag info">{x.area}</span> {x.text}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p>本次各階段首次作答都達到最佳評價。</p>
+          )}
+          {rest.length > 0 && (
+            <details>
+              <summary className="small">其他回饋（{rest.length}）</summary>
+              <ul className="small">
+                {rest.map((x) => (
+                  <li key={x.text}>
+                    {x.area}：{x.text}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </section>
         <h3>來源</h3>
         <RefChips ids={refs} />
         <div className="row" style={{ marginTop: 8 }}>

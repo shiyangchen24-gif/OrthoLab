@@ -23,7 +23,22 @@ npm run e2e        # 端對端遊玩 C01–C08（需先 npm run build；使用 P
 
 ## 部署（靜態網站／GitHub Pages）
 
-`vite.config.ts` 使用 `base: './'`，路由使用 hash（`#/cases`），所以 `dist/` 可以直接放在任何子路徑，例如 `https://<user>.github.io/OrthoLab/`。e2e 測試就是從 `/OrthoLab/` 子路徑提供 `dist/` 來驗證。本專案沒有後端、登入、付費 API 或執行時 AI。
+`vite.config.ts` 使用 `base: './'`，路由使用 hash（`#/cases`），所以 `dist/` 可以直接放在任何子路徑，例如 `https://<user>.github.io/OrthoLab/`。本專案沒有後端、登入、付費 API 或執行時 AI。
+
+**必須發布 `dist/`，不能發布原始碼。** 部署流程 `.github/workflows/deploy-pages.yml` 會在推送到 `main` 時執行 `npm ci → npm test → npm run build`、檢查 `dist/index.html` 沒有引用 `src/main.tsx`，再把 `dist/` 發布到 Pages。
+
+GitHub 設定（只需做一次）：
+1. **Settings → Pages → Build and deployment → Source** 選 **GitHub Actions**（不要選 Deploy from a branch）。
+2. **Settings → Environments → github-pages → Deployment branches** 允許 `main`。
+
+### 空白頁的原因（已確認）
+若 Source 是「Deploy from a branch」，GitHub 會用 Jekyll 直接發布儲存庫根目錄。根目錄的 `index.html` 會載入 `/OrthoLab/src/main.tsx`，GitHub Pages 以 `application/octet-stream` 回傳，瀏覽器拒絕把它當作 module script 執行（Console：*Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "application/octet-stream"*），`#root` 保持空白。現在即使發生這種錯誤部署，頁面也會顯示「OrthoLab 無法啟動」與重新載入按鈕，不會再是空白頁；`npm run e2e` 有重現這個情境的測試。
+
+## 遊戲流程
+
+首頁 → 接診（病患卡：名字、物種、年齡、體重、主訴）→ 患肢定位（俯視圖點選或文字選項）→ 檢查與影像（逐步解鎖、可重讀、正交視角切換）→ 處置推理（3 題判斷＋四類處置回饋）→ 手術操作或非手術管理 → 術後照護 → 結算（分開顯示檢查、推理、操作、照護，並列出最值得改善的 1–2 項）。
+
+未完成的步驟會鎖住，不能跳過。首次進入的玩家從 **C07 示範關卡** 開始，並有可略過、可在設定中重看的引導（每次只提示一個主要動作）。
 
 ## 可玩內容
 
@@ -55,6 +70,7 @@ src/screens/                 首頁、病例、診間、知識庫、來源、設
 tests/                       Vitest 單元測試
 e2e/playthrough.mjs          Playwright 端對端遊玩（含觸控、子路徑、損壞存檔）
 docs/data-review.md          資料問題、處理方式與待審閱項目
+docs/assets.md               素材作者、來源、授權與修改紀錄
 ```
 
 ## 存檔

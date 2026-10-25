@@ -29,6 +29,7 @@ import {
 } from '../engine/t09';
 import { angleDiff, normalizeDeg, rad2deg, screenToModel, type Vec } from '../engine/geometry';
 import { ModuleShell, CheckResult } from '../components/ModuleShell';
+import { coachT09, type Coach } from '../engine/t09Coach';
 import { useModuleState } from '../components/useModuleState';
 import { FractureBones, FractureXRay, Implants } from '../components/art/XRay';
 import { Level, RefChips } from '../components/ui';
@@ -59,8 +60,13 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
   const stickyViolations = (ms.sticky.violations as string[] | undefined) ?? [];
 
   const red = reductionMetrics(s);
-  const pm = plateMetrics(m, s);
-  const fm = fixationMetrics(m, s);
+  const coach = coachT09(m, s);
+  const [flash, setFlash] = useState<string | null>(null);
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), 1800);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   const apply = (next: T09State | ((p: T09State) => T09State), opts?: { record?: boolean }) => ms.set(next, opts);
 
@@ -70,7 +76,8 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
     apply(state);
     if (passed) {
       sound.play('success');
-      setMsg({ kind: 'ok', text: `步驟 ${s.step} 完成檢核。` });
+      setMsg({ kind: 'ok', text: `「${STEPS[s.step - 1]}」完成！${state.completed ? '' : `下一步：${STEPS[s.step]}。`}` });
+      setFlash(`${STEPS[s.step - 1]}完成`);
       if (state.completed) {
         const sc = scoreT09(m, { ...state, violations: Array.from(new Set([...state.violations, ...stickyViolations])) });
         const firsts = [1, 2, 3, 4, 5].map((i) => ms.sticky[`step${i}`] ?? (i === s.step ? passed : undefined));
@@ -85,7 +92,7 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
       }
     } else {
       sound.play('warn');
-      setMsg({ kind: 'err', text: '未達完成門檻', items: issuesFor(s) });
+      setMsg({ kind: 'err', text: '未達完成門檻', items: coach.fixes.length ? coach.fixes : issuesFor(s) });
     }
   };
 
@@ -242,7 +249,7 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
       steps={STEPS}
       current={s.completed ? 5 : s.step - 1}
       done={stepDone}
-      hint={<p>{HINTS[s.step]}</p>}
+      hint={<HintBody coach={coach} base={HINTS[s.step]} />}
       onUndo={ms.undo}
       onReset={() => {
         ms.reset();
@@ -273,7 +280,13 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
                 <span className="spacer" />
                 <span>側標 {m.sideLabel}・上緣＝{m.tensionSideLabel}</span>
               </div>
+              <CoachBar coach={coach} />
               <div className="stage-wrap">
+                {flash && (
+                  <div className="stage-flash" role="status" data-testid="stage-flash">
+                    <span aria-hidden>✓</span> {flash}
+                  </div>
+                )}
                 <svg
                   ref={svgRef}
                   className="stage-svg"
@@ -536,11 +549,15 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
               )}
             </>
           ) : (
-            <FinalCheck m={m} s={s} apply={apply} />
+            <>
+              <CoachBar coach={coach} />
+              <FinalCheck m={m} s={s} apply={apply} />
+            </>
           )}
           <div className="row" style={{ marginTop: 10 }}>
-            <button className="btn primary lg" onClick={runCheck} disabled={s.completed} data-testid="t09-check">
-              ✔ 完成檢核（步驟 {s.step}）
+            <button className={`btn lg ${coach.ready ? 'accent' : 'primary'}`} onClick={runCheck} disabled={s.completed} data-testid="t09-check" data-ready={coach.ready ? 'y' : 'n'}>
+              ✔ 完成檢核：{STEPS[s.step - 1]}
+              {coach.ready && <span className="small">（已達標，可進入下一步）</span>}
             </button>
             {s.step === 2 && (
               <span className="small muted">夾持後遠端骨段會鎖定；之後若需調整復位，請使用撤銷。</span>
@@ -551,9 +568,11 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
           </div>
         </div>
         <aside className="stack">
-          <Hud m={m} s={s} red={red} pm={pm} fm={fm} />
-          <div className="card small">
-            <b>本關說明</b>
+          <CoachPanel coach={coach} />
+          <details className="card small">
+            <summary>
+              <b>本關說明（遊戲幾何門檻，非臨床標準）</b>
+            </summary>
             <p style={{ marginTop: 4 }}>
               以下皆為<b>遊戲幾何門檻</b>，不是臨床標準；數值達標或未達標都不能推論必然癒合或發生併發症。
             </p>
@@ -564,7 +583,7 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
               </p>
             ))}
             <RefChips ids={['R13', 'R14', 'G01']} />
-          </div>
+          </details>
         </aside>
       </div>
     </ModuleShell>
@@ -615,40 +634,6 @@ function ClampLayer({ m, s, onPick }: { m: ReturnType<typeof getModel>; s: T09St
         </g>
       )}
     </g>
-  );
-}
-
-function Hud({ m, s, red, pm, fm }: { m: ReturnType<typeof getModel>; s: T09State; red: ReturnType<typeof reductionMetrics>; pm: ReturnType<typeof plateMetrics>; fm: ReturnType<typeof fixationMetrics> }) {
-  const row = (label: string, value: string, level: Parameters<typeof Level>[0]['level'] | null) => (
-    <tr key={label}>
-      <td>{label}</td>
-      <td>
-        {value} {level && <Level level={level} />}
-      </td>
-    </tr>
-  );
-  return (
-    <div className="hud" aria-label="即時量測">
-      <b style={{ color: '#E0F2FE' }}>即時量測（遊戲幾何）</b>
-      <table>
-        <tbody>
-          {(['primary', 'secondary'] as ViewKey[]).map((v) => [
-            row(`${m.views[v].label} 成角偏差`, `${red.perView[v].angle.toFixed(1)}°`, red.perView[v].angleLevel),
-            row(`${m.views[v].label} 側向平移誤差`, `${red.perView[v].transverse.toFixed(2)} mm`, red.perView[v].transverseLevel),
-          ])}
-          {row('軸向位移誤差（短縮／分離）', `${red.axial.toFixed(2)} mm`, red.axialLevel)}
-          {s.step >= 3 && row('骨板覆蓋率', `${pm.coverage.toFixed(1)}%`, pm.plate ? pm.coverageLevel : null)}
-          {s.step >= 3 && row('骨板貼附面', s.plate.side === null ? '未貼附' : s.plate.side === 'tension' ? '張力側' : '壓力側', s.plate.side === null ? null : s.plate.side === 'tension' ? 'pass' : 'fail')}
-          {s.step >= 4 && row('近端有效皮質', `${fm.corticesProximal}/6`, fm.corticesProximal >= 6 ? 'pass' : 'fail')}
-          {s.step >= 4 && row('遠端有效皮質', `${fm.corticesDistal}/6`, fm.corticesDistal >= 6 ? 'pass' : 'fail')}
-          {s.step >= 4 && row('預設構型完成', `${fm.presetDone}/${fm.presetTotal}`, fm.presetComplete ? 'perfect' : 'adjust')}
-          {s.step >= 4 && row('最近螺釘距骨折線', fm.minMargin === null ? '—' : `${fm.minMargin.toFixed(1)} mm`, fm.minMargin === null ? null : fm.marginLevel)}
-        </tbody>
-      </table>
-      <p className="small muted" style={{ margin: '6px 0 0' }}>
-        「位移誤差」是骨段參考點與目標的距離（遊戲量測），不是臨床骨折間隙。
-      </p>
-    </div>
   );
 }
 
@@ -822,6 +807,81 @@ function SingleView({ caseId, s, view }: { caseId: string; s: T09State; view: Vi
   return (
     <div data-testid={`final-xray-${view}`}>
       <FractureXRay caseId={caseId} state={s} showImplants only={view} />
+    </div>
+  );
+}
+
+function HintBody({ coach, base }: { coach: Coach; base: string }) {
+  return (
+    <div className="stack">
+      <p>
+        <b>現在：</b>
+        {coach.doNow}
+      </p>
+      {coach.fixes.length > 0 && (
+        <ul>
+          {coach.fixes.map((f) => (
+            <li key={f}>{f}</li>
+          ))}
+        </ul>
+      )}
+      <p className="small muted">{base}</p>
+    </div>
+  );
+}
+
+/** One-line "what to do now" above the stage. */
+function CoachBar({ coach }: { coach: Coach }) {
+  return (
+    <div className={`coach-bar ${coach.ready ? 'ready' : ''}`} role="status" aria-live="polite" data-testid="coach-bar">
+      <span aria-hidden>{coach.ready ? '✓' : '➜'}</span>
+      <div>
+        <b>{coach.doNow}</b>
+        {!coach.ready && coach.fixes[0] && <div className="small">{coach.fixes[0]}</div>}
+      </div>
+    </div>
+  );
+}
+
+function CoachPanel({ coach }: { coach: Coach }) {
+  return (
+    <div className="hud" aria-label="操作指引" data-testid="coach-panel">
+      <b style={{ color: '#E0F2FE' }}>操作指引</b>
+      <p className="small" style={{ margin: '4px 0' }}>
+        <span className="muted">可操作：</span>
+        {coach.objects}
+      </p>
+      <table aria-label="即時量測">
+        <thead>
+          <tr className="small muted">
+            <td>項目</td>
+            <td style={{ textAlign: 'right' }}>目前 ／ 目標</td>
+          </tr>
+        </thead>
+        <tbody>
+          {coach.rows.map((r) => (
+            <tr key={r.label}>
+              <td>{r.label}</td>
+              <td>
+                {r.value} <span className="muted small">／ {r.target}</span> {r.level && <Level level={r.level} />}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="small muted" style={{ margin: '6px 0 0' }}>
+        數值為遊戲幾何量測；「位移誤差」是骨段參考點與目標的距離，不是臨床骨折間隙。
+      </p>
+      {coach.fixes.length > 0 && (
+        <details open style={{ marginTop: 6 }}>
+          <summary className="small">未達標原因與修正方式（{coach.fixes.length}）</summary>
+          <ul className="small" style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+            {coach.fixes.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

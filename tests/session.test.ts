@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { cases, cluesForCase, optionsForCase } from '../src/data';
+import { CASE_META } from '../src/data/caseMeta';
 import {
+  answerLocalization,
+  answerQuiz,
+  decisionScore,
+  quizDone,
+  quizQuestions,
+  quizScore,
   chooseOption,
   clueAvailable,
   finishModule,
   proceed,
   revealClue,
   stageScores,
+  examScore,
   startSession,
   totalScore,
   buildRecord,
@@ -14,15 +22,41 @@ import {
 } from '../src/engine/session';
 import { emptySave, load, migrate, save, settle, STORAGE_KEY } from '../src/engine/storage';
 
-const revealAll = (s: CaseSession) => {
+const localize = (s: CaseSession) => answerLocalization(s, CASE_META[s.caseId].limbs).session;
+const answerAllQuiz = (s: CaseSession) => {
   let st = s;
-  for (let k = 0; k < 5; k++) for (const c of cluesForCase(s.caseId)) st = revealClue(st, c.id);
+  for (const q of quizQuestions(st)) st = answerQuiz(st, q.id, q.options.find((o) => o.correct)!.id).session;
   return st;
+};
+/** localise, reveal every clue and answer the reasoning questions correctly */
+const revealAll = (s: CaseSession) => {
+  let st = localize(s);
+  for (let k = 0; k < 5; k++) for (const c of cluesForCase(s.caseId)) st = revealClue(st, c.id);
+  return answerAllQuiz(st);
 };
 
 describe('clue prerequisites', () => {
+  it('no clue is available before the affected limb is localised', () => {
+    const s = startSession('C07', false);
+    expect(clueAvailable(s, 'C07-E1')).toBe(false);
+    const wrong = answerLocalization(s, ['RF']);
+    expect(wrong.correct).toBe(false);
+    expect(clueAvailable(wrong.session, 'C07-E1')).toBe(false);
+    const right = answerLocalization(wrong.session, ['LF']);
+    expect(right.correct).toBe(true);
+    expect(right.session.localization!.firstCorrect).toBe(false);
+    expect(clueAvailable(right.session, 'C07-E1')).toBe(true);
+    expect(examScore(right.session)).toBe(90);
+  });
+
+  it('bilateral cases need both limbs', () => {
+    const s = startSession('C06', false);
+    expect(answerLocalization(s, ['LH']).correct).toBe(false);
+    expect(answerLocalization(s, ['RH', 'LH']).correct).toBe(true);
+  });
+
   it('locked clues cannot be revealed before prerequisites', () => {
-    const s = startSession('C01', false);
+    const s = localize(startSession('C01', false));
     expect(clueAvailable(s, 'C01-E2')).toBe(false);
     expect(revealClue(s, 'C01-E2')).toBe(s);
     const s2 = revealClue(s, 'C01-E1');
@@ -32,7 +66,7 @@ describe('clue prerequisites', () => {
 
 describe('decision feedback', () => {
   it('choosing before required clues → 條件不足, not scored', () => {
-    const s = startSession('C01', false);
+    const s = localize(startSession('C01', false));
     const { session, feedback } = chooseOption(s, 'A01');
     expect(feedback.outcome).toBe('missing-clues');
     expect(feedback.missingClueNames.length).toBe(4);
@@ -46,10 +80,11 @@ describe('decision feedback', () => {
     expect(r.feedback.outcome).toBe('insufficient');
     expect(r.feedback.counted).toBe(false);
     s = r.session;
-    expect(stageScores(s).reasoning).toBeNull();
+    expect(decisionScore(s)).toBeNull();
+    expect(stageScores(s).reasoning).toBe(100); // only the questions so far; null is not averaged in as 0
     const r2 = chooseOption(s, 'A01');
     expect(r2.feedback.counted).toBe(true);
-    expect(stageScores(r2.session).reasoning).toBe(100);
+    expect(decisionScore(r2.session)).toBe(100);
   });
 
   it('four categories behave distinctly', () => {
@@ -68,7 +103,29 @@ describe('decision feedback', () => {
     let s = revealAll(startSession('C07', false));
     s = chooseOption(s, 'A30').session; // unsuitable, score 0
     s = chooseOption(s, 'A29').session;
-    expect(stageScores(s).reasoning).toBe(0);
+    expect(decisionScore(s)).toBe(0);
+    expect(stageScores(s).reasoning).toBe(50); // mean of decision 0 and questions 100
+  });
+
+  it('reasoning questions gate the decision and keep the first attempt', () => {
+    let s = localize(startSession('C07', false));
+    for (const c of cluesForCase('C07')) s = revealClue(s, c.id);
+    expect(quizDone(s)).toBe(false);
+    const early = chooseOption(s, 'A29');
+    expect(early.feedback.outcome).toBe('missing-clues');
+    expect(early.feedback.missingClueNames).toEqual(['推理判斷題']);
+    s = answerQuiz(s, 'evidence', 'E2').session; // wrong first
+    s = answerAllQuiz(s);
+    expect(quizDone(s)).toBe(true);
+    expect(s.quiz!.first.evidence).toBe(false);
+    // answering again after a correct answer cannot change anything
+    expect(answerQuiz(s, 'evidence', 'E1').session).toBe(s);
+    expect(quizScore(s)).toBe(67);
+  });
+
+  it('every reasoning question has at least one correct option', () => {
+    for (const id of Object.keys(CASE_META))
+      for (const q of CASE_META[id].reasoning) expect(q.options.some((o) => o.correct)).toBe(true);
   });
 
   it('every case reaches its module through the preferred option', () => {
@@ -89,6 +146,7 @@ describe('decision feedback', () => {
     expect(sc.operation).toBeNull();
     expect(sc.care).toBe(90);
     expect(totalScore(sc)).toBe(Math.round((100 + 100 + 90) / 3));
+    expect(sc.reasoning).toBe(100);
   });
 });
 

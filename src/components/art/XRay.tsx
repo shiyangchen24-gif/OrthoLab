@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { FRACTURE_MODELS, plateLength, type FractureModel, type ViewKey } from '../../config/fractureCases';
 import { canalPath, distalPath, plateProfilePath, proximalPath } from './boneShapes';
 import { evaluateHole, plateById, widthAt, type T09State } from '../../engine/t09';
@@ -236,6 +236,32 @@ export function XRayPanel({ imageId }: { imageId: string | null }) {
       </div>
     );
   }
-  const r = RENDERERS[imageId]();
-  return imageId === 'C07-IMG' || imageId === 'C08-IMG' ? <>{r}</> : <div className="xray">{r}</div>;
+  if (imageId === 'C07-IMG' || imageId === 'C08-IMG') return <FractureViewer caseId={imageId.slice(0, 3)} />;
+  return (
+    <div>
+      <div className="xray">{RENDERERS[imageId]()}</div>
+      <p className="small muted" style={{ margin: '4px 0 0' }}>本病例資料只提供單一投照的教學示意（非臨床影像）。</p>
+    </div>
+  );
+}
+
+/** Orthogonal view switcher for the fracture schematics (same model state in both views). */
+function FractureViewer({ caseId }: { caseId: string }) {
+  const m = FRACTURE_MODELS[caseId];
+  const [view, setView] = useState<'both' | ViewKey>('both');
+  return (
+    <div>
+      <div className="view-tabs" role="group" aria-label="投照視角">
+        {(['both', 'primary', 'secondary'] as const).map((v) => (
+          <button key={v} className="btn sm" aria-pressed={view === v} onClick={() => setView(v)} data-testid={`xray-view-${v}`}>
+            {v === 'both' ? '兩視角並排' : m.views[v].label}
+          </button>
+        ))}
+        <span className="small muted" style={{ alignSelf: 'center' }}>
+          側標 {m.sideLabel}・教學示意，非臨床影像
+        </span>
+      </div>
+      <FractureXRay caseId={caseId} only={view === 'both' ? undefined : view} />
+    </div>
+  );
 }

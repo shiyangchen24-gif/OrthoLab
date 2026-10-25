@@ -11,9 +11,11 @@ export interface Settings {
   volume: number;
   reducedMotion: 'system' | 'on' | 'off';
   snapAssist: boolean;
+  /** 'auto' = shown until the first case is completed; 'on' = re-watch; 'off' = skipped. */
+  guide: 'auto' | 'on' | 'off';
 }
 
-export const DEFAULT_SETTINGS: Settings = { sound: true, volume: 0.25, reducedMotion: 'system', snapAssist: true };
+export const DEFAULT_SETTINGS: Settings = { sound: true, volume: 0.25, reducedMotion: 'system', snapAssist: true, guide: 'auto' };
 
 export interface SaveData {
   version: typeof SAVE_VERSION;
@@ -52,6 +54,7 @@ function sanitizeSettings(x: unknown): Settings {
     volume: typeof s.volume === 'number' && s.volume >= 0 && s.volume <= 1 ? s.volume : DEFAULT_SETTINGS.volume,
     reducedMotion: s.reducedMotion === 'on' || s.reducedMotion === 'off' || s.reducedMotion === 'system' ? s.reducedMotion : 'system',
     snapAssist: typeof s.snapAssist === 'boolean' ? s.snapAssist : DEFAULT_SETTINGS.snapAssist,
+    guide: s.guide === 'on' || s.guide === 'off' || s.guide === 'auto' ? s.guide : DEFAULT_SETTINGS.guide,
   };
 }
 

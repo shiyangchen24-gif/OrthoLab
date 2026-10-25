@@ -242,3 +242,29 @@ details.kb summary { cursor: pointer; font-weight: 700; }
 @keyframes ear { 0%, 90%, 100% { transform: rotate(0); } 95% { transform: rotate(-5deg); } }
 [data-motion='reduced'] *, [data-motion='reduced'] *::before, [data-motion='reduced'] *::after { animation: none !important; transition: none !important; }
 .stage-svg.concept { max-height: 62vh; }
+
+/* ---------- coaching & guide ---------- */
+.coach-bar { display: flex; gap: 10px; align-items: flex-start; padding: 8px 12px; margin-bottom: 8px; border-radius: 10px; background: #0c2a40; border: 1px solid #38bdf8; color: #e0f2fe; }
+.coach-bar.ready { background: #0f3a2a; border-color: #22c55e; color: #bbf7d0; }
+.coach-bar > span { font-size: 1.2rem; line-height: 1.4; }
+.stage-wrap { position: relative; }
+.stage-flash { position: absolute; z-index: 2; left: 50%; top: 14px; transform: translateX(-50%); padding: 8px 16px; border-radius: 999px; background: #14532d; color: #dcfce7; border: 2px solid #22c55e; font-weight: 800; box-shadow: 0 6px 24px rgb(0 0 0 / 40%); }
+[data-motion='full'] .stage-flash { animation: flashpop 1.8s ease-out both; }
+@keyframes flashpop { 0% { opacity: 0; transform: translate(-50%, -8px) scale(.9); } 12% { opacity: 1; transform: translate(-50%, 0) scale(1); } 85% { opacity: 1; } 100% { opacity: 0; } }
+.guide { display: flex; gap: 12px; align-items: flex-start; padding: 10px 14px; border-radius: 12px; background: #fff7ed; border: 2px solid #f97316; }
+.guide .step { font-size: .78rem; color: #9a3412; font-weight: 700; }
+.guide b { display: block; }
+.guide-target { outline: 3px solid #f97316 !important; outline-offset: 3px; border-radius: 10px; }
+[data-motion='full'] .guide-target { animation: guidepulse 1.6s ease-in-out infinite; }
+@keyframes guidepulse { 50% { outline-color: #fdba74; } }
+.limb-map { width: 100%; max-width: 260px; display: block; margin: 0 auto; touch-action: manipulation; }
+.limb-map .limb { cursor: pointer; }
+.limb-map .limb:focus-visible { outline: none; }
+.limb-map .limb:focus-visible rect, .limb-map .limb:hover rect { stroke: #f97316; stroke-width: 3; }
+.quiz-q + .quiz-q { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.quiz-opts { display: grid; gap: 6px; margin-top: 6px; }
+.quiz-opt { text-align: left; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: #fff; cursor: pointer; min-height: 44px; }
+.quiz-opt[aria-pressed='true'].right { border-color: var(--ok); background: #f0fdf4; }
+.quiz-opt[aria-pressed='true'].wrong { border-color: var(--warn); background: #fef2f2; }
+.locked-note { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--clinic-bg2); color: var(--ink2); font-size: .9rem; }
+.view-tabs { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }

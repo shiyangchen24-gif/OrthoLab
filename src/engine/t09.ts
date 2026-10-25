@@ -238,8 +238,25 @@ export function plateMetrics(m: FractureModel, s: T09State): PlateMetrics {
   if (!isPassing(coverageLevel)) issues.push(`骨板覆蓋率 ${coverage.toFixed(1)}% 未達本關門檻（≥75%）：骨板過短易應力集中`);
   if (overhang > 0.05) issues.push(`骨板超出骨端 ${overhang.toFixed(1)} mm，可能干擾關節：請往內移`);
   if (!plate.isPreset) issues.push('此骨板不是本病例預設構型');
-  const passed = sideOk && spansFracture && isPassing(coverageLevel) && overhang <= 0.05 && plate.isPreset;
+  // every preset hole must be drillable from here, otherwise step 4 would be a dead end
+  const blockedPreset = plate.isPreset ? presetHoleProblems(m, s) : [];
+  for (const b of blockedPreset) issues.push(b.text);
+  const passed = sideOk && spansFracture && isPassing(coverageLevel) && overhang <= 0.05 && plate.isPreset && blockedPreset.length === 0;
   return { plate, start, end, coverage, coverageLevel, overhang, spansFracture, sideOk, isPreset: plate.isPreset, passed, issues };
+}
+
+/** Preset holes that cannot host an effective screw at the current plate position. */
+export function presetHoleProblems(m: FractureModel, s: T09State): { index: number; kind: 'no-bone' | 'fracture' | 'articular'; text: string }[] {
+  const plate = plateById(m, s.plate.plateId);
+  if (!plate) return [];
+  const out: { index: number; kind: 'no-bone' | 'fracture' | 'articular'; text: string }[] = [];
+  for (const i of plate.presetHoles) {
+    const e = evaluateHole(m, s, i, null);
+    if (!e.overBone) out.push({ index: i, kind: 'no-bone', text: `預設螺孔 ${i + 1} 下方沒有骨質` });
+    else if (!isPassing(e.marginLevel)) out.push({ index: i, kind: 'fracture', text: `預設螺孔 ${i + 1} 距骨折線 ${e.fractureMargin.toFixed(1)} mm（本關門檻 ≥5 mm）` });
+    else if (!isPassing(e.articularLevel)) out.push({ index: i, kind: 'articular', text: `預設螺孔 ${i + 1} 距關節面 ${e.articular.toFixed(1)} mm（本關門檻 ≥3 mm）` });
+  }
+  return out;
 }
 
 export function movePlate(m: FractureModel, s: T09State, x: number, side: T09State['plate']['side']): T09State {

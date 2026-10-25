@@ -63,8 +63,24 @@ function watch(page, label) {
 
 const tid = (id) => `[data-testid="${id}"]`;
 
+const LIMBS = { C01: ['LH'], C02: ['LH'], C03: ['RH'], C04: ['RH'], C05: ['LH'], C06: ['LH', 'RH'], C07: ['LF'], C08: ['RH'] };
+
+async function localize(page, caseId) {
+  for (const l of LIMBS[caseId]) await page.click(tid(`limb-${l}`));
+  await page.click(tid('limb-confirm'));
+  await page.locator('[aria-label="患肢定位"] .tag.ok').waitFor();
+}
+
+async function answerQuiz(page) {
+  await page.locator(tid('quiz')).waitFor();
+  for (const id of ['location', 'evidence', 'missing']) await page.locator(`[data-testid^="quiz-${id}-"][data-correct="y"]`).first().click();
+}
+
+/** localise, run every exam, answer the reasoning questions */
 async function revealAll(page, caseId) {
+  await localize(page, caseId);
   for (let i = 1; i <= 4; i++) await page.click(tid(`exam-${caseId}-E${i}`));
+  await answerQuiz(page);
 }
 
 async function deck(page) {
@@ -86,6 +102,10 @@ async function deck(page) {
     const stillDeck = await page.locator(tid('deck-submit')).count();
     if (!stillDeck) return;
   }
+}
+
+async function reasoningNote(page) {
+  return (await page.locator('.score-tile', { hasText: '推理' }).textContent()) ?? '';
 }
 
 async function scores(page) {
@@ -145,7 +165,7 @@ async function t09(page, caseId, { drag = false } = {}) {
     await page.mouse.down();
     for (let k = 1; k <= 10; k++) await page.mouse.move(a.x + ((b.x - a.x) * k) / 10, a.y);
     await page.mouse.up();
-    const axial = await page.locator('.hud tr', { hasText: '軸向位移誤差' }).locator('td').nth(1).textContent();
+    const axial = await page.locator('[aria-label="即時量測"] tr', { hasText: '軸向位移誤差' }).locator('td').nth(1).textContent();
     assert(/^0\.\d\d mm/.test(axial.trim()) && parseFloat(axial) < 0.6, `${caseId} pointer drag at 200% zoom moved fragment to axial error ${axial.trim()}`);
     await page.click('button:has-text("100%")');
     // undo the remaining axial residue with keys if needed
@@ -157,7 +177,7 @@ async function t09(page, caseId, { drag = false } = {}) {
   await keyFix('secondary');
   // fine-correct any axial residue left by dragging
   for (let k = 0; k < 10; k++) {
-    const txt = await page.locator('.hud tr', { hasText: '軸向位移誤差' }).locator('td').nth(1).textContent();
+    const txt = await page.locator('[aria-label="即時量測"] tr', { hasText: '軸向位移誤差' }).locator('td').nth(1).textContent();
     if (/PASS|PERFECT/.test(txt)) break;
     await stage.focus();
     await page.keyboard.press('Shift+ArrowRight');
@@ -168,7 +188,7 @@ async function t09(page, caseId, { drag = false } = {}) {
   await page.click(tid('clamp-px-top'));
   await page.click(tid('clamp-ds-bot'));
   await page.click(tid('t09-check'));
-  assert((await page.locator('.banner.err', { hasText: '骨板預定路徑' }).count()) > 0, `${caseId} clamp on plate path rejected`);
+  assert((await page.locator('.banner.err', { hasText: '夾鉗會擋住骨板' }).count()) > 0, `${caseId} clamp on plate path rejected with the fix (改選另一側)`);
   await page.click(tid('clamp-px-bot'));
   await page.click(tid('t09-check'));
   await page.click(tid(`plate-${cfg.plate}`));
@@ -185,10 +205,10 @@ async function t09(page, caseId, { drag = false } = {}) {
     await page.click(tid(`len-${len}`));
   }
   // duplicate click on a locked hole cannot add purchase
-  const before = await page.locator('.hud tr', { hasText: '近端有效皮質' }).textContent();
+  const before = await page.locator('[aria-label="即時量測"] tr', { hasText: '近端有效皮質' }).textContent();
   await page.click(tid(`hole-${cfg.holes[0]}`));
   assert((await page.locator(tid('drill')).count()) === 0, `${caseId} locked hole offers no second drill/lock`);
-  const after = await page.locator('.hud tr', { hasText: '近端有效皮質' }).textContent();
+  const after = await page.locator('[aria-label="即時量測"] tr', { hasText: '近端有效皮質' }).textContent();
   assert(before === after, `${caseId} re-clicking a locked hole does not change purchase (${after.trim()})`);
   await page.click(tid(`hole-${cfg.holes[0]}`)); // deselect
   await page.click(tid('t09-check'));
@@ -226,20 +246,68 @@ const browser = await chromium.launch();
   await page.reload();
   assert((await page.locator(tid('ack')).count()) === 0, 'notice does not reappear after acknowledgement');
 
-  // C01: premature decision, prerequisite lock, insufficient, preferred → TPLO
+  // C07 demo level from the home page, guided, with reload mid-surgery and settle-once checks
+  console.log('C07 demo');
+  await page.click(tid('start'));
+  await page.locator(tid('guide')).waitFor();
+  assert((await page.locator(tid('patient-name')).textContent()) === '雪球', 'C07 patient card shows the (fictional) name');
+  assert((await page.locator(tid('guide-do')).textContent()).includes('患肢'), 'guide: first action is limb localisation');
+  assert((await page.locator('.guide-target').count()) === 1, 'guide highlights exactly one target');
+  await localize(page, 'C07');
+  assert((await page.locator(tid('guide-do')).textContent()).includes('步態／病史'), 'guide moves on to the first exam');
+  for (let i = 1; i <= 4; i++) await page.click(tid(`exam-C07-E${i}`));
+  await page.click(tid('xray-view-secondary'));
+  assert((await page.locator('[data-testid="record-C07-E3"] .xray').count()) === 1, 'imaging can switch to a single orthogonal view');
+  await page.click(tid('xray-view-both'));
+  await answerQuiz(page);
+  await page.click(tid('option-A30'));
+  assert((await page.getAttribute(tid('verdict'), 'data-outcome')) === 'unsuitable', 'A30 splint → 不適合 (and not routed to extracapsular screen)');
+  assert((await page.locator(tid('proceed')).count()) === 0, 'splint option offers no module');
+  await proceedWith(page, 'A29');
+  assert((await page.locator(tid('coach-bar')).textContent()).includes('逆時針'), 'T09 coach says which way to rotate');
+  await page.reload();
+  assert(await page.locator(tid('t09-stage')).isVisible(), 'reload resumes inside T09');
+  await t09(page, 'C07');
+  await deck(page);
+  let sc = await scores(page);
+  log('C07 scores', sc.join(' / '));
+  await page.screenshot({ path: `${OUT}/C07-results.png`, fullPage: true });
+  const saveCount = () => page.evaluate(() => { const d = JSON.parse(localStorage.getItem('ortholab:save')); return { first: Object.keys(d.first).length, practice: d.practice.length, settled: d.settled.length }; });
+  const before = await saveCount();
+  await page.reload();
+  await page.locator('[aria-label="學習回饋"]').waitFor();
+  await page.reload();
+  await page.locator('[aria-label="學習回饋"]').waitFor();
+  const after = await saveCount();
+  assert(JSON.stringify(before) === JSON.stringify(after) && before.first === 1 && before.practice === 0, `results settle once (${JSON.stringify(after)})`);
+  assert((await page.locator(tid('guide')).count()) === 0, 'guide auto-hides after the first completed case');
+
+  // C01: locks (limb → exams → reasoning → options), wrong localisation, insufficient, preferred → TPLO
   console.log('C01');
   await startCase(page, 'C01');
+  assert((await page.locator(tid('vital-side')).textContent()) === '待定位', 'affected side hidden before localisation');
+  assert(await page.locator(tid('exam-C01-E1')).isDisabled(), 'exams locked before limb localisation');
+  assert(await page.locator(tid('option-A01')).isDisabled(), 'treatment options locked before exams');
+  await page.click(tid('limb-RH'));
+  await page.click(tid('limb-confirm'));
+  assert((await page.locator(tid('limb-feedback')).textContent()).includes('不是本病例的患肢'), 'wrong limb → explanatory feedback, still locked');
+  assert(await page.locator(tid('exam-C01-E1')).isDisabled(), 'exams stay locked after a wrong limb');
+  await page.click(tid('limb-RH')); // unselect
+  await localize(page, 'C01');
   assert(await page.locator(tid('exam-C01-E2')).isDisabled(), 'C01-E2 locked until C01-E1');
-  await page.click(tid('option-A01'));
-  assert((await page.getAttribute(tid('verdict'), 'data-outcome')) === 'missing-clues', 'premature decision → 條件不足 (missing clues)');
-  await revealAll(page, 'C01');
+  for (let i = 1; i <= 4; i++) await page.click(tid(`exam-C01-E${i}`));
+  assert(await page.locator(tid('option-A01')).isDisabled(), 'treatment options locked until reasoning questions are done');
+  await page.click(tid('quiz-evidence-E3')); // wrong first answer, recorded
+  await answerQuiz(page);
   await page.click(tid('option-A03'));
   assert((await page.getAttribute(tid('verdict'), 'data-outcome')) === 'insufficient', 'A03 TTA → 條件不足');
   assert((await page.locator(tid('proceed')).count()) === 0, 'insufficient option cannot proceed');
+  assert((await page.locator(tid('verdict')).textContent()).includes('不是 0 分'), 'insufficient feedback: not scored, not zero');
   await page.click(tid('option-A04'));
   assert((await page.getAttribute(tid('verdict'), 'data-outcome')) === 'unsuitable', 'A04 → 不適合');
   await page.click(tid('option-A02'));
   assert((await page.getAttribute(tid('verdict'), 'data-outcome')) === 'alternative', 'A02 → 可接受替代');
+  assert((await page.locator(tid('verdict')).textContent()).includes('不是醫療錯誤'), 'alternative feedback says it is not a medical error');
   await proceedWith(page, 'A01');
   await page.click(tid('plan-wrong-side'));
   await page.click(tid('tplo-check'));
@@ -259,9 +327,12 @@ const browser = await chromium.launch();
   await page.screenshot({ path: `${OUT}/C01-tplo.png`, fullPage: true });
   await page.click(tid('tplo-check'));
   await deck(page);
-  let sc = await scores(page);
+  sc = await scores(page);
   log('C01 scores', sc.join(' / '));
-  assert(sc[1] === '0', 'C01 reasoning keeps first scored choice (A04 = 0), not the later preferred one');
+  assert((await reasoningNote(page)).includes('處置 0'), 'C01 reasoning keeps first scored choice (A04 = 0), not the later preferred one');
+  assert((await reasoningNote(page)).includes('判斷題 67'), 'C01 first wrong reasoning answer is kept (67)');
+  assert(sc[0] === '90', 'C01 exam score reflects the wrong first localisation');
+  assert((await page.locator(tid('improve-top')).locator('li').count()) <= 2, 'results highlight at most two improvements');
   await page.screenshot({ path: `${OUT}/C01-results.png`, fullPage: true });
 
   // C02: alternative route (explanation only, no fake operation)
@@ -274,7 +345,7 @@ const browser = await chromium.launch();
   await page.click(tid('explain-finish'));
   sc = await scores(page);
   log('C02 scores', sc.join(' / '));
-  assert(sc[1] === '80' && sc[2] === '不適用', 'C02 alternative: reasoning 80, operation 不適用');
+  assert((await reasoningNote(page)).includes('處置 80') && sc[2] === '不適用', 'C02 alternative: decision 80 (not an error), operation 不適用');
 
   // C03 FHNE
   console.log('C03');
@@ -340,22 +411,6 @@ const browser = await chromium.launch();
   }
   assert(!deckTexts.C05.some((t) => deckTexts.C06.includes(t)), 'C05 and C06 management cards differ');
 
-  // C07 T09 (keyboard) with reload mid-way to verify resume
-  console.log('C07');
-  await startCase(page, 'C07');
-  await revealAll(page, 'C07');
-  await page.click(tid('option-A30'));
-  assert((await page.getAttribute(tid('verdict'), 'data-outcome')) === 'unsuitable', 'A30 splint → 不適合 (and not routed to extracapsular screen)');
-  assert((await page.locator(tid('proceed')).count()) === 0, 'splint option offers no module');
-  await proceedWith(page, 'A29');
-  await page.reload();
-  assert(await page.locator(tid('t09-stage')).isVisible(), 'reload resumes inside T09');
-  await t09(page, 'C07');
-  await deck(page);
-  sc = await scores(page);
-  log('C07 scores', sc.join(' / '));
-  await page.screenshot({ path: `${OUT}/C07-results.png`, fullPage: true });
-
   // C08 T09 with pointer drag + zoom; A34 must be 條件不足
   console.log('C08');
   await startCase(page, 'C08');
@@ -367,7 +422,7 @@ const browser = await chromium.launch();
   await deck(page);
   sc = await scores(page);
   log('C08 scores', sc.join(' / '));
-  assert(sc[1] === '100', 'C08 reasoning: A34 (null) not counted, A33 counted 100');
+  assert((await reasoningNote(page)).includes('處置 100'), 'C08 reasoning: A34 (null) not counted, A33 counted 100');
 
   // results persist; practice does not overwrite first
   await page.goto(`${APP}#/cases`);
@@ -399,7 +454,10 @@ const browser = await chromium.launch();
   await page.tap(tid('ack'));
   await page.goto(`${APP}#/cases`);
   await page.tap(tid('start-C07'));
+  await page.tap(tid('limb-btn-LF'));
+  await page.tap(tid('limb-confirm'));
   for (let i = 1; i <= 4; i++) await page.tap(tid(`exam-C07-E${i}`));
+  for (const id of ['location', 'evidence', 'missing']) await page.locator(`[data-testid^="quiz-${id}-"][data-correct="y"]`).first().tap();
   await page.tap(tid('option-A29'));
   await page.tap(tid('proceed'));
   await page.locator(tid('t09-stage')).waitFor();
@@ -415,17 +473,57 @@ const browser = await chromium.launch();
     return el ? `${el.tagName} ${el.closest('[data-testid]')?.getAttribute('data-testid')}` : 'none';
   }, a);
   assert(hit.includes('t09-fragment-hit'), `touch point lands on the fragment (${hit})`);
+  const scrollBefore = await page.evaluate(() => window.scrollY);
   const cdp = await ctx.newCDPSession(page);
   const touch = (type, p) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: p ? [{ x: p.x, y: p.y }] : [] });
   await touch('touchStart', a);
   for (let k = 1; k <= 8; k++) await touch('touchMove', { x: a.x + ((b.x - a.x) * k) / 8, y: a.y });
   await touch('touchEnd');
-  const axial = await page.locator('.hud tr', { hasText: '軸向位移誤差' }).locator('td').nth(1).textContent();
+  const axial = await page.locator('[aria-label="即時量測"] tr', { hasText: '軸向位移誤差' }).locator('td').nth(1).textContent();
   assert(parseFloat(axial) < 0.5, `touch drag moved fragment (axial ${axial.trim()})`);
+  const scrollAfter = await page.evaluate(() => window.scrollY);
+  assert(scrollAfter === scrollBefore, `touch drag on the stage does not scroll the page (${scrollBefore} → ${scrollAfter})`);
   await page.tap('button[aria-label="順時針旋轉 1 度"]');
   await page.screenshot({ path: `${OUT}/touch-t09.png`, fullPage: true });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert(overflow <= 1, `no horizontal page scroll on phone width (overflow ${overflow}px)`);
+  await ctx.close();
+}
+
+// ---------- regression: publishing the raw repo root must not give a blank page ----------
+{
+  console.log('raw-source deploy');
+  const ROOT = new URL('../', import.meta.url).pathname;
+  const raw = createServer(async (req, res) => {
+    const url = new URL(req.url, 'http://x');
+    let rel = normalize(url.pathname.slice(BASE.length)).replace(/^(\.\.[/\\])+/, '');
+    if (!url.pathname.startsWith(BASE)) return res.writeHead(404).end();
+    if (rel === '' || rel === '.') rel = 'index.html';
+    try {
+      // GitHub Pages serves .tsx as application/octet-stream
+      res.writeHead(200, { 'content-type': TYPES[extname(rel)] ?? 'application/octet-stream' }).end(await readFile(join(ROOT, rel)));
+    } catch {
+      res.writeHead(404).end();
+    }
+  });
+  await new Promise((r) => raw.listen(0, r));
+  const page = await browser.newPage();
+  await page.goto(`http://localhost:${raw.address().port}${BASE}`);
+  await page.locator('#boot-failed').waitFor({ state: 'visible', timeout: 20000 });
+  assert(await page.locator('#boot-failed button', { hasText: '重新載入' }).isVisible(), 'raw-source deploy shows a failure screen with a reload button instead of a blank page');
+  assert((await page.locator('#boot-reason').textContent()).includes('main.tsx'), 'failure screen names the unloadable source file for maintainers');
+  await page.close();
+  raw.close();
+}
+
+// ---------- reduced motion ----------
+{
+  const ctx = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await ctx.newPage();
+  watch(page, 'reduced-motion');
+  await page.goto(APP);
+  assert((await page.evaluate(() => document.documentElement.dataset.motion)) === 'reduced', 'prefers-reduced-motion turns animations off');
+  assert((await page.locator('#boot').count()) === 0, 'boot screen is removed after React starts');
   await ctx.close();
 }
 

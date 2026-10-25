@@ -41,6 +41,21 @@ export function Settings() {
         </label>
       </section>
       <section className="card stack">
+        <h3>新手引導</h3>
+        <p className="small muted">引導每次只提示目前可做的一個主要動作。預設在完成第一個病例前顯示。</p>
+        <div className="row">
+          <button className="btn" onClick={() => updateSettings({ guide: 'on' })} aria-pressed={st.guide === 'on'} data-testid="guide-rewatch">
+            🧭 重看引導
+          </button>
+          <button className="btn" onClick={() => updateSettings({ guide: 'off' })} aria-pressed={st.guide === 'off'}>
+            關閉引導
+          </button>
+          <button className="btn" onClick={() => updateSettings({ guide: 'auto' })} aria-pressed={st.guide === 'auto'}>
+            自動（完成第一個病例前）
+          </button>
+        </div>
+      </section>
+      <section className="card stack">
         <h3>紀錄</h3>
         <p className="small">
           首次作答 {Object.keys(data.first).length} 筆、練習 {data.practice.length} 筆。存檔格式版本 v{SAVE_VERSION}（瀏覽器 localStorage）。

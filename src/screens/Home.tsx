@@ -56,7 +56,9 @@ export function Home() {
   const [confirm, setConfirm] = useState(false);
   const firstDone = Object.keys(data.first).length;
   const inProgress = data.session && !data.session.settled ? data.session : null;
-  const nextCase = cases.find((c) => !data.first[c.id]) ?? cases[0];
+  // first visit: the polished C07 demo level; afterwards the first unfinished case
+  const demo = cases.find((c) => c.id === 'C07')!;
+  const nextCase = firstDone === 0 ? demo : cases.find((c) => !data.first[c.id]) ?? cases[0];
 
   const begin = () => {
     if (inProgress && inProgress.caseId !== nextCase.id) return setConfirm(true);
@@ -76,7 +78,7 @@ export function Home() {
           <p className="small muted">8 個虛構教學病例・5 個可操作模組・所有評分皆為本遊戲教學評分。</p>
           <div className="menu-grid">
             <button className="btn primary lg" onClick={begin} data-testid="start">
-              🩺 開始接診{!inProgress ? `（${nextCase.id}）` : ''}
+              🩺 {firstDone === 0 && !inProgress ? '開始示範關卡（C07）' : `開始接診${!inProgress ? `（${nextCase.id}）` : ''}`}
             </button>
             <button className="btn lg" onClick={() => navigate('cases')} data-testid="menu-cases">
               📋 病例選擇
