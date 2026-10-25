@@ -221,6 +221,103 @@ async function t09(page, caseId, { drag = false } = {}) {
   await page.click(tid('t09-check'));
 }
 
+
+// ---------- scene helpers ----------
+async function selectTool(page, tool) {
+  if ((await page.getAttribute(tid(`tool-${tool}`), 'aria-pressed')) !== 'true') await page.click(tid(`tool-${tool}`));
+}
+async function sceneUse(page, tool, zone) {
+  await selectTool(page, tool);
+  await page.click(tid(`zone-${zone}`));
+}
+/** drag a tool out of the tray and drop it on a zone (pointer path) */
+async function trayDrag(page, tool, zone) {
+  const from = await page.locator(tid(`tool-${tool}`)).boundingBox();
+  const to = await page.locator(tid(`zone-${zone}`)).boundingBox();
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  for (let k = 1; k <= 12; k++) await page.mouse.move(from.x + from.width / 2 + ((to.x + to.width / 2 - from.x - from.width / 2) * k) / 12, from.y + from.height / 2 + ((to.y + to.height / 2 - from.y - from.height / 2) * k) / 12);
+  await page.mouse.up();
+}
+async function holdOn(page, zone, ms) {
+  const b = await page.locator(tid(`zone-${zone}`)).boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(ms);
+  await page.mouse.up();
+}
+async function waitUnlocked(page, tool) {
+  await page.waitForFunction((t) => document.querySelector(`[data-testid="tool-${t}"]`)?.getAttribute('aria-disabled') === 'false', tool);
+}
+
+async function sceneSurgery(page) {
+  const stage = page.locator(tid('t09-stage'));
+  await page.locator(tid('zoom-intro')).waitFor({ state: 'detached' });
+  // step 1: reduction with the grasp tool; dragging without it only gives a hint
+  assert((await page.locator(tid('t09-confirm')).count()) === 0, 'reduction cannot be confirmed before it meets the targets');
+  await selectTool(page, 'grasp');
+  await stage.focus();
+  for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowRight');
+  for (const [view, theta, dy] of [['primary', 14, 1.2], ['secondary', -11, -0.8]]) {
+    await page.click(tid(`view-${view}`));
+    await stage.focus();
+    for (let i = 0; i < Math.abs(theta); i++) await page.keyboard.press(theta > 0 ? 'q' : 'e');
+    let d = Math.abs(dy);
+    const key = dy > 0 ? 'ArrowUp' : 'ArrowDown';
+    while (d >= 0.5 - 1e-9) { await page.keyboard.press(key); d -= 0.5; }
+    while (d >= 0.1 - 1e-9) { await page.keyboard.press(`Shift+${key}`); d -= 0.1; }
+  }
+  await page.click(tid('t09-confirm'));
+  await page.locator(tid('stage-flash')).waitFor();
+  assert(true, 'reduction confirmed with a stage-complete animation');
+  // step 2: clamp — on the plate path is refused, then valid points finish the step by themselves
+  await waitUnlocked(page, 'clamp');
+  await sceneUse(page, 'clamp', 'clamp-px-top');
+  assert((await page.locator(tid('task-feedback')).textContent()).includes('擋住骨板'), 'clamp on the plate path is refused with the alternative');
+  await sceneUse(page, 'clamp', 'clamp-px-bot');
+  await sceneUse(page, 'clamp', 'clamp-ds-bot');
+  // step 3: plate — choose size, drag from tray onto the tension surface, align along the axis
+  await waitUnlocked(page, 'plate');
+  await selectTool(page, 'plate');
+  await page.click(tid('plate-c07-p12'));
+  await trayDrag(page, 'plate', 'bone-top');
+  assert((await page.locator(tid('task-feedback')).textContent()).includes('張力側'), 'plate dropped from the tray onto the tension side');
+  await page.click(tid('plate-move-5'));
+  await page.click(tid('plate-move-0.5'));
+  await page.screenshot({ path: `${OUT}/C07-plate.png` });
+  log('plate hud', (await page.locator('.surgery-hud').textContent().catch(() => '')).slice(0, 200));
+  await page.click(tid('t09-confirm'));
+  // step 4: drill (hold) → gauge → screw
+  await waitUnlocked(page, 'drill');
+  await selectTool(page, 'drill');
+  await holdOn(page, 'hole-1', 250);
+  assert((await page.locator(tid('zone-hole-1')).getAttribute('aria-label')).includes('已鑽孔') === false, 'releasing the drill early does not drill');
+  await holdOn(page, 'hole-8', 1200);
+  assert((await page.locator(tid('task-feedback')).getAttribute('data-kind')) === 'warn', 'drilling next to the fracture line is refused with a reason');
+  for (const h of [1, 3, 5, 9, 10, 11]) {
+    await selectTool(page, 'drill');
+    await holdOn(page, `hole-${h}`, 1200);
+    await sceneUse(page, 'gauge', `hole-${h}`);
+    const g = parseFloat((await page.locator(tid('task-feedback')).textContent()).match(/量深 ([\d.]+)/)[1]);
+    await selectTool(page, 'screw');
+    const lens = await page.locator('[data-testid^="len-"]').evaluateAll((els) => els.map((e) => Number(e.dataset.testid.slice(4))));
+    await page.click(tid(`len-${lens.filter((l) => l >= g && l <= g + 2).sort((a, b) => a - b)[0]}`));
+    await page.click(tid(`zone-hole-${h}`));
+    if (h === 3) await page.screenshot({ path: `${OUT}/C07-screws.png` });
+    if (h === 1) {
+      await page.click(tid(`zone-hole-${h}`));
+      assert((await page.locator(tid('task-feedback')).textContent()).includes('不需要重鎖'), 'tapping an effective screw again adds nothing');
+    }
+  }
+  // step 5: C-arm shots and checks
+  await waitUnlocked(page, 'carm');
+  assert(await page.locator(tid('confirm-reduction')).isDisabled(), 'checks stay locked until both orthogonal shots exist');
+  await sceneUse(page, 'carm', 'shot-primary');
+  await sceneUse(page, 'carm', 'shot-secondary');
+  for (const c of ['reduction', 'alignment', 'implant', 'purchase']) await page.click(tid(`confirm-${c}`));
+  await page.screenshot({ path: `${OUT}/C07-carm.png` });
+}
+
 async function startCase(page, caseId) {
   await page.goto(`${APP}#/cases`);
   await page.click(tid(`start-${caseId}`));
@@ -246,28 +343,55 @@ const browser = await chromium.launch();
   await page.reload();
   assert((await page.locator(tid('ack')).count()) === 0, 'notice does not reappear after acknowledgement');
 
-  // C07 demo level from the home page, guided, with reload mid-surgery and settle-once checks
-  console.log('C07 demo');
+  // C07 scene level: started from the home page, driven only through tools and scene targets
+  console.log('C07 scene');
   await page.click(tid('start'));
-  await page.locator(tid('guide')).waitFor();
-  assert((await page.locator(tid('patient-name')).textContent()) === '雪球', 'C07 patient card shows the (fictional) name');
-  assert((await page.locator(tid('guide-do')).textContent()).includes('患肢'), 'guide: first action is limb localisation');
-  assert((await page.locator('.guide-target').count()) === 1, 'guide highlights exactly one target');
-  await localize(page, 'C07');
-  assert((await page.locator(tid('guide-do')).textContent()).includes('步態／病史'), 'guide moves on to the first exam');
-  for (let i = 1; i <= 4; i++) await page.click(tid(`exam-C07-E${i}`));
-  await page.click(tid('xray-view-secondary'));
-  assert((await page.locator('[data-testid="record-C07-E3"] .xray').count()) === 1, 'imaging can switch to a single orthogonal view');
-  await page.click(tid('xray-view-both'));
-  await answerQuiz(page);
-  await page.click(tid('option-A30'));
-  assert((await page.getAttribute(tid('verdict'), 'data-outcome')) === 'unsuitable', 'A30 splint → 不適合 (and not routed to extracapsular screen)');
-  assert((await page.locator(tid('proceed')).count()) === 0, 'splint option offers no module');
-  await proceedWith(page, 'A29');
-  assert((await page.locator(tid('coach-bar')).textContent()).includes('逆時針'), 'T09 coach says which way to rotate');
+  await page.locator(tid('scene')).waitFor();
+  assert((await page.locator(tid('patient-chip')).textContent()).includes('雪球') && (await page.locator(tid('patient-chip')).textContent()).includes('待定位'), 'C07 scene: patient chip with name, side hidden before localisation');
+  assert((await page.locator('#root button.btn').count()) < 12, 'scene is not driven by a wall of text buttons');
+  assert(await page.locator(tid('tool-tag')).getAttribute('aria-disabled') === 'true', 'tools are locked until their stage');
+  // using a tool on the wrong target gives feedback, never progress
+  await sceneUse(page, 'chart', 'dog');
+  assert((await page.locator(tid('task-feedback')).getAttribute('data-kind')) === 'warn', 'wrong target → warning, no progress');
+  await sceneUse(page, 'chart', 'owner');
+  assert((await page.locator(tid('task-feedback')).textContent()).includes('飼主'), 'owner states the complaint in a speech line');
+  await page.waitForTimeout(1100); // the patient is lifted onto the table
+  // drag-from-tray path for the limb tag (wrong limb first, then the right one)
+  await selectTool(page, 'tag');
+  await page.screenshot({ path: `${OUT}/C07-tag-valid.png` });
+  await page.click(tid('tool-tag')); // put it back
+  await trayDrag(page, 'tag', 'limb-RF');
+  assert((await page.locator(tid('task-feedback')).textContent()).includes('不是患肢'), 'dragging the tag onto the wrong limb is rejected with a fix');
+  await trayDrag(page, 'tag', 'limb-LF');
+  assert((await page.locator(tid('patient-chip')).textContent()).includes('左前肢'), 'dragging the tag onto the affected limb localises it');
+  await sceneUse(page, 'observe', 'dog');
+  await sceneUse(page, 'palpate', 'limb-LH');
+  assert((await page.locator(tid('task-feedback')).textContent()).includes('不需重複碰觸'), 'palpating a non-affected limb gives guidance, no progress');
+  await sceneUse(page, 'palpate', 'limb-LF');
+  const fbPalp = await page.locator(tid('task-feedback')).textContent();
+  await sceneUse(page, 'palpate', 'limb-LF');
+  assert((await page.locator(tid('task-feedback')).getAttribute('data-kind')) === 'info' && fbPalp.includes('觸診'), 'repeated palpation does not add progress');
+  await sceneUse(page, 'xray', 'limb-LF');
+  assert((await page.locator(tid('scene-overlay')).locator('.xray').count()) === 2, 'X-ray opens two orthogonal teaching views');
+  await page.click(tid('overlay-close'));
+  await sceneUse(page, 'chart', 'owner');
+  await page.click(tid('info-toggle'));
+  assert((await page.locator(tid('info-drawer')).locator('[data-testid^="record-C07-E"]').count()) === 4, 'all exam results re-readable in the record drawer');
+  await page.click(tid('info-toggle'));
+  await page.click(tid('zone-board'));
+  await page.locator(`[data-testid^="quiz-location-"][data-correct="n"]`).first().click();
+  for (const id of ['location', 'evidence', 'missing']) await page.locator(`[data-testid^="quiz-${id}-"][data-correct="y"]`).first().click();
+  await page.click(tid('to-decision'));
+  await page.click(tid('option-A31'));
+  assert((await page.getAttribute(tid('verdict'), 'data-outcome')) === 'unsuitable', 'C07 decision: IM pin → 不適合');
+  await page.click(tid('reselect'));
+  await page.click(tid('option-A29'));
+  assert((await page.getAttribute(tid('verdict'), 'data-outcome')) === 'preferred', 'C07 decision: plate ORIF → 本病例優先');
+  await page.click(tid('proceed'));
+  await page.locator(tid('t09-stage')).waitFor();
   await page.reload();
-  assert(await page.locator(tid('t09-stage')).isVisible(), 'reload resumes inside T09');
-  await t09(page, 'C07');
+  assert(await page.locator(tid('t09-stage')).isVisible(), 'reload resumes inside the surgery scene');
+  await sceneSurgery(page);
   await deck(page);
   let sc = await scores(page);
   log('C07 scores', sc.join(' / '));
@@ -454,19 +578,36 @@ const browser = await chromium.launch();
   await page.tap(tid('ack'));
   await page.goto(`${APP}#/cases`);
   await page.tap(tid('start-C07'));
-  await page.tap(tid('limb-btn-LF'));
-  await page.tap(tid('limb-confirm'));
-  for (let i = 1; i <= 4; i++) await page.tap(tid(`exam-C07-E${i}`));
+  await page.locator(tid('scene')).waitFor();
+  const tapUse = async (tool, zone) => {
+    if ((await page.getAttribute(tid(`tool-${tool}`), 'aria-pressed')) !== 'true') await page.tap(tid(`tool-${tool}`));
+    await page.tap(tid(`zone-${zone}`));
+  };
+  await tapUse('chart', 'owner');
+  await page.waitForTimeout(1100);
+  await tapUse('tag', 'limb-LF');
+  await tapUse('observe', 'dog');
+  await tapUse('palpate', 'limb-LF');
+  await tapUse('xray', 'limb-LF');
+  await page.tap(tid('overlay-close'));
+  await tapUse('chart', 'owner');
+  await page.screenshot({ path: `${OUT}/touch-clinic.png` });
+  await page.tap(tid('zone-board'));
   for (const id of ['location', 'evidence', 'missing']) await page.locator(`[data-testid^="quiz-${id}-"][data-correct="y"]`).first().tap();
+  await page.tap(tid('to-decision'));
   await page.tap(tid('option-A29'));
   await page.tap(tid('proceed'));
   await page.locator(tid('t09-stage')).waitFor();
+  await page.locator(tid('zoom-intro')).waitFor({ state: 'detached' });
+  await page.tap(tid('tool-grasp'));
   // touch drag via pointer events on the fragment
-  await page.locator('[data-testid="t09-fragment-hit"] rect').evaluate((el) => el.scrollIntoView({ block: 'center' }));
-  // C07 initial pose: θ 14°, dy 1.2, dx −3 → a point 15 mm into the distal fragment
-  const th = (14 * Math.PI) / 180;
-  const grab = { x: 56 + 15 * Math.cos(th) - 3, y: 15 * Math.sin(th) + 1.2 };
-  const [a, b] = await modelToScreen(page, [grab, { x: grab.x + 3, y: grab.y }]);
+  const stageOverflow = await page.evaluate(() => { const g = document.querySelector('.game'); return g.scrollWidth - g.clientWidth; });
+  assert(stageOverflow <= 1, `phone: the game screen fits the width (overflow ${stageOverflow}px)`);
+  // grab the distal fragment at its on-screen centre; move +3 model-mm along the axis (C07 starts 3 mm short)
+  const fr = await page.locator('[data-testid="t09-fragment-hit"] rect').boundingBox();
+  const [m0, m1] = await modelToScreen(page, [{ x: 0, y: 0 }, { x: 3, y: 0 }]);
+  const a = { x: fr.x + fr.width / 2, y: fr.y + fr.height / 2 };
+  const b = { x: a.x + (m1.x - m0.x), y: a.y + (m1.y - m0.y) };
   // real touch drag through the Chrome DevTools protocol (touch → pointer events)
   const hit = await page.evaluate((p) => {
     const el = document.elementFromPoint(p.x, p.y);
@@ -479,12 +620,13 @@ const browser = await chromium.launch();
   await touch('touchStart', a);
   for (let k = 1; k <= 8; k++) await touch('touchMove', { x: a.x + ((b.x - a.x) * k) / 8, y: a.y });
   await touch('touchEnd');
-  const axial = await page.locator('[aria-label="即時量測"] tr', { hasText: '軸向位移誤差' }).locator('td').nth(1).textContent();
-  assert(parseFloat(axial) < 0.5, `touch drag moved fragment (axial ${axial.trim()})`);
+  const dx = await page.evaluate(() => JSON.parse(localStorage.getItem('ortholab:save')).session.moduleState['PROC-ORIF-PLATE'].dx);
+  assert(Math.abs(dx) < 0.5, `touch drag moved the fragment in model space (dx ${dx.toFixed(2)} mm)`);
+  assert((await page.locator('.surgery-hud tr', { hasText: '軸向位移誤差' }).count()) === 0, 'phone HUD drops a measurement once it meets the target');
   const scrollAfter = await page.evaluate(() => window.scrollY);
   assert(scrollAfter === scrollBefore, `touch drag on the stage does not scroll the page (${scrollBefore} → ${scrollAfter})`);
   await page.tap('button[aria-label="順時針旋轉 1 度"]');
-  await page.screenshot({ path: `${OUT}/touch-t09.png`, fullPage: true });
+  await page.screenshot({ path: `${OUT}/touch-t09.png` });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert(overflow <= 1, `no horizontal page scroll on phone width (overflow ${overflow}px)`);
   await ctx.close();

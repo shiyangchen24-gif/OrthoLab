@@ -10,6 +10,8 @@ import { CASE_META } from '../data/caseMeta';
 import { ANSWER_LABEL, type LearningRecord } from '../types';
 import { Clinic, FLOW, flowIndex } from './Clinic';
 import { T09Fracture } from '../modules/T09Fracture';
+import { C07Clinic } from '../scenes/C07Clinic';
+import { FractureSurgery } from '../scenes/FractureSurgery';
 import { T01Tplo } from '../modules/T01Tplo';
 import { T02Fhne } from '../modules/T02Fhne';
 import { T03Mpl } from '../modules/T03Mpl';
@@ -39,9 +41,11 @@ export function Play() {
       </div>
     );
   }
+  // C07 is the scene-based demo level; other cases keep the classic screens
+  const scene = s.caseId === 'C07';
   switch (s.stage) {
     case 'clinic':
-      return <Clinic />;
+      return scene ? <C07Clinic /> : <Clinic />;
     case 'procedure':
       return <ProcedureStage />;
     case 'explain':
@@ -78,6 +82,7 @@ function ProcedureStage() {
   const proc = activeProcedure(s);
   const done = (r: ModuleResult) => updateSession((x) => finishModule(x, r));
   let body: React.ReactNode;
+  if (proc === 'PROC-ORIF-PLATE' && s.caseId === 'C07') return <FractureSurgery caseId={s.caseId} onDone={done} />;
   switch (proc) {
     case 'PROC-ORIF-PLATE':
       body = <T09Fracture caseId={s.caseId} onDone={done} />;

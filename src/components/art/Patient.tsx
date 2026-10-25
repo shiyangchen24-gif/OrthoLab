@@ -47,9 +47,12 @@ function Leg({ x, y, h, fill, lifted = false, bend = 0, cls }: { x: number; y: n
   // a leg hanging from (x, y); lifted legs rotate at the joint and clear the floor
   const rot = lifted ? bend : 0;
   return (
-    <g transform={`rotate(${rot} ${x} ${y})`} className={lifted ? cls : undefined}>
+    // rotation on the outer group: a CSS animation on the same element would replace the transform
+    <g transform={`rotate(${rot} ${x} ${y})`}>
+      <g className={lifted ? cls : undefined}>
       <rect x={x - 6} y={y} width="12" height={h} rx="6" fill={fill} stroke="#7C5A3A" strokeOpacity=".25" strokeWidth="2" />
       <ellipse cx={x + 2} cy={y + h} rx="8" ry="4.5" fill={fill} stroke="#7C5A3A" strokeOpacity=".25" strokeWidth="2" />
+      </g>
     </g>
   );
 }

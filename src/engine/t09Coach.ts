@@ -94,7 +94,7 @@ export function coachT09(m: FractureModel, s: T09State): Coach {
         { label: `${m.views[k].label} 成角`, value: `${f1(r.perView[k].angle)}°`, target: '≤5°（≤2° 為 PERFECT）', level: r.perView[k].angleLevel },
         { label: `${m.views[k].label} 側向平移`, value: `${f2(r.perView[k].transverse)} mm`, target: '≤1.0 mm', level: r.perView[k].transverseLevel },
       ]);
-      rows.push({ label: '軸向位移誤差（短縮／分離）', value: `${f2(r.axial)} mm`, target: '≤1.0 mm', level: r.axialLevel });
+      rows.unshift({ label: '軸向位移誤差（短縮／分離）', value: `${f2(r.axial)} mm`, target: '≤1.0 mm', level: r.axialLevel });
       return {
         doNow: r.passed ? '兩個視角都已復位。按「完成檢核」進入骨鉗暫夾。' : `在 ${m.views[v].label} 視角把遠端骨段對回虛線目標位置。`,
         objects: '遠端骨段（拖曳移動）、藍色旋轉把手（拖曳旋轉）、視角切換、微調按鈕／鍵盤。',
