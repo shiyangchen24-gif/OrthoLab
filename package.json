@@ -1,0 +1,30 @@
+{
+  "name": "ortholab",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "OrthoLab：繁體中文獸醫骨科互動教學模擬遊戲",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "node e2e/playthrough.mjs",
+    "data:extract": "python3 -I scripts/extract_xlsx.py data-source/veterinary-ortho-game-source.xlsx src/data/generated/source.json"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "4.4.1",
+    "jsdom": "25.0.1",
+    "typescript": "5.8.3",
+    "vite": "6.3.5",
+    "vitest": "3.1.4"
+  }
+}
