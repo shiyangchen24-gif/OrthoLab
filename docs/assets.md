@@ -6,7 +6,7 @@
 |---|---|---|---|---|---|
 | 犬貓側視角色（姿態：抬腳、坐臥、蹲伏） | `src/components/art/Patient.tsx` | OrthoLab 專案（以程式碼繪製的 SVG） | 原創，依美術規範 ART-03 | 未指定 | v1.0 建立；v1.2 修正抬起的患肢被動畫覆蓋而未顯示 |
 | 診間病患插圖（坐姿 3/4 正面，呼吸／眨眼／抬肢微顫／觸診回縮動畫） | `src/components/PatientView.tsx`、`PatientView.css` | OrthoLab 專案（以程式碼繪製的 SVG） | 原創，依美術規範 ART-03 | 未指定 | v1.3 建立；診間（一般病例與 C07 場景）改用此版，舊 `Patient.tsx` 仍供首頁與病例列表使用 |
-| 手繪風格 PNG：C07 瑪爾濟斯三姿態、診間背景、獸醫 | `src/assets/patients/maltese/`、`src/assets/scene/` | ChatGPT 生成（使用者提供） | 使用者提供，OrthoLab 縮放對齊 | 由 ChatGPT 生成 | v1.5 接入；飼主、檢查台待提供，見 `docs/art-assets.md` |
+| 手繪風格 PNG：C07 瑪爾濟斯三姿態、診間背景、獸醫、飼主、檢查台 | `src/assets/patients/maltese/`、`src/assets/scene/` | ChatGPT 生成（使用者提供） | 使用者提供，OrthoLab 縮放對齊 | 由 ChatGPT 生成 | v1.5–1.6 接入；人物為半身構圖，見 `docs/art-assets.md` |
 | 患肢定位俯視圖 | `src/components/art/LimbMap.tsx` | OrthoLab 專案 | 原創 | 未指定 | v1.1 建立 |
 | 診所場景、獸醫角色 | `src/screens/Home.tsx`（ClinicScene） | OrthoLab 專案 | 原創 | 未指定 | v1.0 建立 |
 | X 光教學示意（C01–C08） | `src/components/art/XRay.tsx` | OrthoLab 專案 | 原創向量示意，依 C0x-IMG 素材需求；**非臨床影像、非 DICOM** | 未指定 | v1.0 建立；v1.1 加入正交視角切換 |

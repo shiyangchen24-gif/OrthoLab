@@ -13,18 +13,21 @@ export interface SceneSlot {
   /** expected canvas size of the delivered PNG (same aspect ratio as rect) */
   canvas: { width: number; height: number };
   note: string;
+  /** people: rows of the canvas the figure spans (head top / shoe soles) */
+  figure?: { top: number; bottom: number };
+  /** table: canvas row where the patient's paws sit */
+  seatY?: number;
   source: string;
   license: string;
 }
 
 const generated = { source: '使用者以 ChatGPT 生成（OrthoLab 依規格裁切、縮放、對齊）', license: '由 ChatGPT 生成，使用者提供' };
-const pending = { source: '待製作（原創手繪風格，配色：暖白、霧藍、鼠尾草綠、淡青；左上方柔光）', license: '待確認' };
 
 export const SCENE_SLOTS = {
   background: { file: 'clinic-room.png', rect: { x: 0, y: 0, width: 1600, height: 900 }, canvas: { width: 1536, height: 864 }, note: '牆面、櫃體、窗戶、植栽與用品；低對比、低細節；不含人物、檢查台、文字；地板線約在 70% 高度', ...generated },
-  owner: { file: 'owner.png', rect: { x: 183, y: 100, width: 314, height: 600 }, canvas: { width: 660, height: 1260 }, note: '飼主全身站姿，透明背景，腳底貼齊畫布底部', ...pending },
-  vet: { file: 'vet.png', rect: { x: 1183, y: 100, width: 314, height: 600 }, canvas: { width: 660, height: 1260 }, note: '獸醫全身站姿，透明背景，腳底貼齊畫布底部', ...generated },
-  table: { file: 'exam-table.png', rect: { x: 520, y: 500, width: 640, height: 230 }, canvas: { width: 1920, height: 690 }, note: '檢查台（柔和材質），台面上緣位於畫布 y = 60（場景 y = 520）', ...pending },
+  owner: { file: 'owner.png', rect: { x: 183, y: 100, width: 314, height: 600 }, canvas: { width: 660, height: 1260 }, figure: { top: 16, bottom: 1257 }, note: '飼主全身站姿，透明背景，腳底貼齊畫布底部；場景中以半身構圖顯示', ...generated },
+  vet: { file: 'vet.png', rect: { x: 1183, y: 100, width: 314, height: 600 }, canvas: { width: 660, height: 1260 }, figure: { top: 16, bottom: 1257 }, note: '獸醫全身站姿，透明背景，腳底貼齊畫布底部；場景中以半身構圖顯示', ...generated },
+  table: { file: 'exam-table.png', rect: { x: 460, y: 432, width: 720, height: 480 }, canvas: { width: 1536, height: 1024 }, seatY: 190, note: '檢查台（台面＋金屬腳架），透明背景；病患腳掌落在畫布 y = 190 的台面上', ...generated },
 } satisfies Record<string, SceneSlot>;
 
 export type SceneSlotId = keyof typeof SCENE_SLOTS;

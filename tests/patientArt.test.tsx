@@ -16,13 +16,15 @@ const ALL = { 'maltese/sit.png': PNG + '#sit', 'maltese/lift-LF.png': PNG + '#li
 const fixture = (files: Record<string, string>) => resolvePatientArt('犬', '瑪爾濟斯', files);
 
 describe('raster art manifest', () => {
-  it('bundled art: the Maltese poses, room and vet are delivered; owner and table still fall back', () => {
+  it('bundled art: the Maltese poses and every clinic scene layer are delivered', () => {
     const art = resolvePatientArt('犬', '瑪爾濟斯')!;
     expect(Object.keys(art.urls).sort()).toEqual(['lift-LF', 'sit', 'withdraw-LF']);
     expect(missingArt()).toEqual([]);
     expect(sceneImage('background')).not.toBeNull();
     expect(sceneImage('vet')).not.toBeNull();
-    expect(missingSceneArt().sort()).toEqual(['src/assets/scene/exam-table.png', 'src/assets/scene/owner.png']);
+    expect(missingSceneArt()).toEqual([]);
+    expect(sceneImage('owner')).not.toBeNull();
+    expect(sceneImage('table')).not.toBeNull();
     // status follows the files: delivered only when every pose exists
     for (const a of CHARACTER_ART) expect(a.status).toBe(missingArt().some((m) => m.id === a.id) ? 'pending' : 'delivered');
     // other breeds have no raster art and keep the vector character

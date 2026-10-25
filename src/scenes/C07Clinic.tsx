@@ -37,9 +37,18 @@ const DESK_VB = `0 0 ${W} ${H}`;
 const PORTRAIT_VB = '430 40 780 900';
 /** Portrait phones get their own composition (not a shrunken desktop): everyone moves inside a narrow crop. */
 const LAYOUT = {
-  desk: { board: [930, 80], lightbox: [1260, 110], owner: 340, bubble: [40, 150], vet: 1340, dogFloor: [430, 400] },
-  portrait: { board: [760, 60], lightbox: [460, 70], owner: 560, bubble: [450, 752], vet: 1260, dogFloor: [620, 400] },
+  desk: {
+    board: [930, 80], lightbox: [450, 300], owner: 340, bubble: [290, 290], vet: 1340, dogFloor: [430, 400],
+    // painted art: owner and vet framed half-body at the sides (cropped by the stage), table centred under the patient
+    painted: { owner: { cx: 230, top: 150, h: 1250 }, vet: { cx: 1400, top: 150, h: 1250 }, ownerZone: [40, 140, 400, 760], table: { cx: 820, w: 720 } },
+  },
+  portrait: {
+    board: [1020, 155], lightbox: [440, 160], owner: 560, bubble: [520, 790], vet: 1260, dogFloor: [620, 400],
+    painted: { owner: { cx: 330, top: 350, h: 1000 }, vet: { cx: 1310, top: 350, h: 1000 }, ownerZone: [200, 340, 300, 600], table: { cx: 820, w: 640 } },
+  },
 };
+/** where the patient's paws meet the table (PatientView baseline in scene units) */
+const SEAT_Y = 109 + 334 * (420 / 340);
 
 const E = (n: number) => `${CASE}-E${n}`;
 
@@ -296,33 +305,38 @@ export function C07Clinic() {
           </Zone>
         )}
         </g>
+        <clipPath id="c07-stage-clip">
+          {/* the room's extent: phones show more than the crop, so only the room edge may cut figures */}
+          <rect x="0" y="0" width={W} height={H} />
+        </clipPath>
         {/* layer 2: people behind the table */}
-        <g data-layer="people">
+        <g data-layer="people" clipPath="url(#c07-stage-clip)">
           <g className="enter-left">
-            <SlotImage id="owner" fallback={<Owner x={lay.owner} y={290} talking={phase === 'intake'} />} dx={lay.owner - 340} />
+            <SlotImage id="owner" fallback={<Owner x={lay.owner} y={290} talking={phase === 'intake'} />} rect={personRect(lay.painted.owner)} />
           </g>
-          <SlotImage id="vet" fallback={<Vet x={lay.vet} y={290} wave={phase === 'decide'} />} dx={lay.vet - 1340} />
+          <SlotImage id="vet" fallback={<Vet x={lay.vet} y={290} wave={phase === 'decide'} />} rect={personRect(lay.painted.vet)} />
         </g>
         {/* layer 3: exam table */}
         <g data-layer="table">
-          <SlotImage id="table" fallback={<ExamTable x={540} y={520} w={600} />} />
+          <SlotImage id="table" fallback={<ExamTable x={540} y={520} w={600} />} rect={tableRect(lay.painted.table)} />
         </g>
         {/* layer 6: interaction targets (transparent, scene coordinates) */}
         <g data-layer="interaction">
           <Zone id="owner" label="飼主" accepts={['chart']} {...zp} pop={pop === 'owner'}>
-            <rect className="limb-outline" x={lay.owner - 100} y="270" width="200" height="420" rx="40" />
+            {sceneImage('owner') ? (
+              <rect className="limb-outline" x={lay.painted.ownerZone[0]} y={lay.painted.ownerZone[1]} width={lay.painted.ownerZone[2]} height={lay.painted.ownerZone[3]} rx="40" />
+            ) : (
+              <rect className="limb-outline" x={lay.owner - 100} y="270" width="200" height="420" rx="40" />
+            )}
           </Zone>
         </g>
         {!heard && (
           // placement lives on the outer group: the pop animation's CSS transform would override it on the same element
           <g transform={`translate(${lay.bubble[0]} ${lay.bubble[1]})`} data-testid="owner-bubble">
             <g className="bubble">
-              <rect width="440" height="104" rx="22" fill="#FFFCF6" stroke="#E6DED2" strokeWidth="3" />
-              {portrait ? (
-                <path d="M100 0 l10 -34 l40 34 z" fill="#FFFCF6" stroke="#E6DED2" strokeWidth="3" />
-              ) : (
-                <path d="M270 104 l30 34 l10 -34 z" fill="#FFFCF6" stroke="#E6DED2" strokeWidth="3" />
-              )}
+              <rect width="380" height="104" rx="22" fill="#FFFCF6" stroke="#E6DED2" strokeWidth="3" />
+              {/* tail points left, toward the owner */}
+              <path d="M0 26 l-38 -6 l38 34 z" fill="#FFFCF6" stroke="#E6DED2" strokeWidth="3" />
               <text x="24" y="44" fontSize="26" fill="#3F3A36">醫師，雪球從沙發跳下來後</text>
               <text x="24" y="80" fontSize="26" fill="#3F3A36">左前腳就不敢踩了…</text>
             </g>
@@ -370,11 +384,28 @@ export function C07Clinic() {
 }
 
 /** A scene layer: the delivered PNG in its scene box, or the vector fallback. `dx` shifts the box for the portrait layout. */
-function SlotImage({ id, fallback, dx = 0 }: { id: SceneSlotId; fallback: React.ReactNode; dx?: number }) {
+/** A scene layer: the delivered PNG at its layout box (scene units), or the vector fallback. */
+function SlotImage({ id, fallback, rect }: { id: SceneSlotId; fallback: React.ReactNode; rect?: { x: number; y: number; width: number; height: number } }) {
   const url = sceneImage(id);
   if (!url) return <g data-art="vector" data-slot={id}>{fallback}</g>;
-  const r = SCENE_SLOTS[id].rect;
-  return <image href={url} x={r.x + dx} y={r.y} width={r.width} height={r.height} preserveAspectRatio="xMidYMax meet" data-art="raster" data-slot={id} />;
+  const r = rect ?? SCENE_SLOTS[id].rect;
+  // decoration only: transparent image boxes must never cover tool targets
+  return <image href={url} x={r.x} y={r.y} width={r.width} height={r.height} preserveAspectRatio="xMidYMax meet" pointerEvents="none" data-art="raster" data-slot={id} />;
+}
+
+/** Box for a person PNG so the figure's head starts at `top`, centred on `cx`, figure `h` tall (the stage crops the legs). */
+function personRect({ cx, top, h }: { cx: number; top: number; h: number }) {
+  const { canvas, figure } = SCENE_SLOTS.vet; // owner and vet share the same canvas contract
+  const height = (h * canvas.height) / (figure.bottom - figure.top);
+  const width = (height * canvas.width) / canvas.height;
+  return { x: cx - width / 2, y: top - (figure.top * height) / canvas.height, width, height };
+}
+
+/** Box for the table PNG so its seat line meets the patient's paw baseline. */
+function tableRect({ cx, w }: { cx: number; w: number }) {
+  const { canvas, seatY } = SCENE_SLOTS.table;
+  const height = (w * canvas.height) / canvas.width;
+  return { x: cx - w / 2, y: SEAT_Y - (seatY * height) / canvas.height, width: w, height };
 }
 
 const LIMBS: Limb[] = ['RH', 'LH', 'RF', 'LF']; // forelimbs last so they win overlapping hits

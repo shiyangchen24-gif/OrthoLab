@@ -2,16 +2,15 @@
 
 C07 診間已接入使用者以 ChatGPT 生成的手繪風格素材：
 - 瑪爾濟斯三個對齊姿態
-- 診間背景
-- 獸醫
+- 診間背景、獸醫、飼主、檢查台
 
-飼主與檢查台的素材尚未提供，這兩層暫時沿用向量版。
+C07 診間的所有圖層都已是手繪 PNG。獸醫與飼主以「半身」構圖出現在畫面兩側（全身圖放大，下半身由畫面底部與檢查台遮住），檢查台位於病患正下方。
 
 | 項目 | 狀態 |
 |---|---|
 | 程式整合（分層場景、PNG 接入、姿態切換、命中區、退縮計時、回退機制、檢查工具、測試） | **已完成** |
-| 素材取得 | **部分完成**：`sit`、`lift-LF`、`withdraw-LF`、`clinic-room`、`vet` 已放入；`owner`、`exam-table` 待提供 |
-| 視覺驗收 | **部分完成**：病患、背景、獸醫已在桌面與手機檢查；飼主與檢查台仍是向量版，整體風格尚未一致 |
+| 素材取得 | **C07 診間完成**：`sit`、`lift-LF`、`withdraw-LF`、`clinic-room`、`vet`、`owner`、`exam-table` |
+| 視覺驗收 | **C07 診間完成**：桌面與手機（直式）皆已檢查構圖、命中區與觸診姿態切換；其他畫面與病例尚未改版 |
 
 ### 已放入素材的處理紀錄
 
@@ -19,6 +18,8 @@ C07 診間已接入使用者以 ChatGPT 生成的手繪風格素材：
 |---|---|
 | `src/assets/patients/maltese/{sit,lift-LF,withdraw-LF}.png` | 原圖 1024 × 1536 透明 PNG，三張頭部位置一致（位移 0 px）。以同一倍率（0.79）縮放，前腳掌中心對齊 x = 510、腳掌基線對齊 y = 1002，輸出 1020 × 1140。各姿態命中區依實際畫面重新量測。 |
 | `src/assets/scene/vet.png` | 原圖 1024 × 1536 透明 PNG，縮放 0.822，鞋底貼齊畫布底部，輸出 660 × 1260。 |
+| `src/assets/scene/owner.png` | 原圖 1024 × 1536 透明 PNG，與獸醫相同處理，輸出 660 × 1260。 |
+| `src/assets/scene/exam-table.png` | 原圖 1536 × 1024 透明 PNG，原尺寸放入；病患腳掌落在畫布 y = 190 的台面上（`seatY`）。 |
 | `src/assets/scene/clinic-room.png` | 原圖 1536 × 1024，裁成 16:9（1536 × 864，上方裁 95 px），讓地板線落在 70% 高度；未放大，以免假造解析度。 |
 
 ## 1. 場景分層（C07 診間，`src/scenes/C07Clinic.tsx`）
@@ -29,8 +30,8 @@ C07 診間已接入使用者以 ChatGPT 生成的手繪風格素材：
 |---|---|---|---|
 | 1 | `background` | 牆面、櫃體、窗戶、植栽、用品 | `src/assets/scene/clinic-room.png`，缺件時用向量診間 |
 | — | `props` | 推理白板、X 光燈箱（可互動，文字由程式繪製） | 程式繪製 |
-| 2 | `people` | 飼主、獸醫 | `owner.png`、`vet.png`，缺件時用向量人物 |
-| 3 | `table` | 檢查台 | `exam-table.png`，缺件時用向量檢查台 |
+| 2 | `people` | 飼主、獸醫（半身構圖，位置由 `C07Clinic.tsx` 的 `LAYOUT.*.painted` 依桌面／手機分別設定） | `owner.png`、`vet.png`，缺件時用向量人物 |
+| 3 | `table` | 檢查台（台面 `seatY` 對齊病患腳掌基線） | `exam-table.png`，缺件時用向量檢查台 |
 | 4–5 | `patient` | 病患角色＋接觸陰影＋患肢／身體命中區 | `src/assets/patients/maltese/*.png`，缺件時用向量 `PatientView` |
 | 6 | `interaction` | 飼主命中區（透明） | 程式繪製 |
 | 7 | HTML | 導覽、任務提示（左上，一次一句）、結果卡、工具盤、病歷側欄 | 程式呈現 |
@@ -66,8 +67,7 @@ python3 -I scripts/check_patient_assets.py
 
 | 檔案 | 尺寸 | 說明 |
 |---|---|---|
-| `src/assets/scene/owner.png` | 660 × 1260 | 飼主全身，透明背景，腳底貼齊畫布底部 |
-| `src/assets/scene/exam-table.png` | 1920 × 690 | 檢查台，台面上緣在畫布 y = 60 |
+C07 診間沒有缺件。
 
 其他品種（C01–C06、C08）尚未規劃 PNG，繼續使用向量角色。
 
@@ -75,8 +75,7 @@ python3 -I scripts/check_patient_assets.py
 
 | 素材 | 來源 | 授權 |
 |---|---|---|
-| 瑪爾濟斯三姿態、診間背景、獸醫 PNG | 使用者以 ChatGPT 生成並提供；OrthoLab 依規格縮放、裁切、對齊 | 由 ChatGPT 生成（使用者提供） |
-| 飼主、檢查台 PNG | 待提供 | 待確認 |
+| 瑪爾濟斯三姿態、診間背景、獸醫、飼主、檢查台 PNG | 使用者以 ChatGPT 生成並提供；OrthoLab 依規格縮放、裁切、對齊 | 由 ChatGPT 生成（使用者提供） |
 | 使用者提供的參考圖（犬隻插畫、改版示意圖） | 使用者提供 | 未說明；**未放入專案**，只作為風格參考 |
 | 向量回退角色與場景 | OrthoLab 專案原創程式碼 | 同專案 |
 

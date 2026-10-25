@@ -337,7 +337,7 @@ details.kb summary { cursor: pointer; font-weight: 700; }
 [data-motion='full'] .zone-pop { animation: zonepop .6s ease-out; transform-box: fill-box; transform-origin: center; }
 @keyframes zonepop { 0% { transform: scale(1); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }
 [data-motion='full'] .glow { animation: glow 1.4s ease-in-out infinite; }
-@keyframes glow { 50% { opacity: .55; } }
+@keyframes glow { 50% { stroke-opacity: .4; } }
 .enter-left { }
 [data-motion='full'] .enter-left { animation: enterleft 1.2s ease-out both; }
 [data-motion='full'] .fade-in { animation: fadein .6s ease-out both; }

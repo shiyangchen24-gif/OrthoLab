@@ -32,7 +32,7 @@ SCENE = {
     "clinic-room.png": {"canvas": (1536, 864), "opaque": True},
     "owner.png": {"canvas": (660, 1260), "opaque": False},
     "vet.png": {"canvas": (660, 1260), "opaque": False},
-    "exam-table.png": {"canvas": (1920, 690), "opaque": False},
+    "exam-table.png": {"canvas": (1536, 1024), "opaque": False},
 }
 
 
