@@ -32,7 +32,8 @@ jobs:
       - name: Verify build output
         run: |
           test -f dist/index.html
-          if grep -q 'src/main.tsx' dist/index.html; then echo "dist/index.html still references src/main.tsx"; exit 1; fi
+          # match only a real script tag; the boot-failure help text mentions the filename on purpose
+          if grep -Eq '<script[^>]*src="[^"]*main\.tsx"' dist/index.html; then echo "dist/index.html still loads src/main.tsx"; exit 1; fi
           grep -q 'assets/index-.*\.js' dist/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
