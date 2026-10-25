@@ -6,9 +6,68 @@
     <meta name="description" content="OrthoLab：獸醫骨科互動教學模擬（教學用途，非臨床決策工具）" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <title>OrthoLab 獸醫骨科教學模擬</title>
+    <style>
+      /* boot screen: visible until React mounts; never depends on the app bundle */
+      #boot { font-family: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh; display: grid; place-items: center; padding: 16px; box-sizing: border-box; }
+      #boot .box { max-width: 520px; text-align: center; }
+      #boot .spin { width: 36px; height: 36px; border-radius: 50%; border: 4px solid #bae6fd; border-top-color: #0284c7; margin: 0 auto 12px; animation: bootspin 0.9s linear infinite; }
+      #boot button { min-height: 44px; padding: 8px 18px; border-radius: 10px; border: 0; background: #0284c7; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+      #boot details { margin-top: 12px; text-align: left; font-size: 0.85rem; color: #475569; }
+      #boot [hidden] { display: none; }
+      @keyframes bootspin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { #boot .spin { animation: none; } }
+    </style>
   </head>
   <body>
+    <div id="boot" role="status" aria-live="polite">
+      <div class="box">
+        <div id="boot-loading">
+          <div class="spin" aria-hidden="true"></div>
+          <p><b>OrthoLab 載入中…</b></p>
+        </div>
+        <div id="boot-failed" hidden>
+          <p style="font-size: 1.3rem"><b>OrthoLab 無法啟動</b></p>
+          <p>遊戲程式沒有成功載入。可以重新載入再試一次；你的存檔不會被刪除。</p>
+          <button type="button" onclick="location.reload()">重新載入</button>
+          <details>
+            <summary>技術資訊（給網站維護者）</summary>
+            <p id="boot-reason">程式在時限內沒有完成啟動。</p>
+            <p>若網址下出現 <code>src/main.tsx</code>，代表發布的是原始碼而不是 <code>npm run build</code> 產生的 <code>dist/</code>：請把 GitHub Pages 的 Source 設為「GitHub Actions」。</p>
+          </details>
+        </div>
+      </div>
+    </div>
     <div id="root"></div>
+    <script>
+      (function () {
+        var failed = false;
+        function fail(reason) {
+          if (failed || window.__orthoBooted) return;
+          failed = true;
+          var l = document.getElementById('boot-loading');
+          var f = document.getElementById('boot-failed');
+          var r = document.getElementById('boot-reason');
+          if (l) l.hidden = true;
+          if (f) f.hidden = false;
+          if (r && reason) r.textContent = reason;
+        }
+        window.__orthoBootFail = fail;
+        // resource errors (e.g. a module script rejected for its MIME type) don't bubble: listen in capture
+        window.addEventListener(
+          'error',
+          function (e) {
+            var t = e.target;
+            if (t && t.tagName === 'SCRIPT') fail('無法載入程式檔：' + (t.src || '(inline)'));
+            else if (e.message) fail('啟動時發生錯誤：' + e.message);
+          },
+          true,
+        );
+        setTimeout(function () {
+          var src = Array.prototype.map.call(document.querySelectorAll('script[type="module"]'), function (s) { return s.src; }).join(' ');
+          fail(/\.tsx?(\?|$)/.test(src) ? '頁面載入的是 TypeScript 原始碼（' + src + '），瀏覽器無法執行。' : '程式在 15 秒內沒有完成啟動。');
+        }, 15000);
+      })();
+    </script>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

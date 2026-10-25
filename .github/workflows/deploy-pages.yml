@@ -28,6 +28,12 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      # guard against publishing source: the built page must load bundled JS, never src/main.tsx
+      - name: Verify build output
+        run: |
+          test -f dist/index.html
+          if grep -q 'src/main.tsx' dist/index.html; then echo "dist/index.html still references src/main.tsx"; exit 1; fi
+          grep -q 'assets/index-.*\.js' dist/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
