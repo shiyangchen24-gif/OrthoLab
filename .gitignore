@@ -3,3 +3,4 @@ dist
 *.log
 e2e/output
 .DS_Store
+*.tsbuildinfo
