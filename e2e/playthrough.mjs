@@ -213,6 +213,7 @@ async function t09(page, caseId, { drag = false } = {}) {
   const after = await page.locator('[aria-label="即時量測"] tr', { hasText: '近端有效皮質' }).textContent();
   assert(before === after, `${caseId} re-clicking a locked hole does not change purchase (${after.trim()})`);
   await page.click(tid(`hole-${cfg.holes[0]}`)); // deselect
+  await page.screenshot({ path: `${OUT}/${caseId}-t09-screws.png`, fullPage: true });
   await page.click(tid('t09-check'));
   await page.locator(tid('final-view-secondary')).waitFor();
   assert((await page.locator(tid('confirm-reduction')).isDisabled()), `${caseId} final checks locked until both views seen`);

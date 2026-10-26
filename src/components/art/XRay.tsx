@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
+import { illust } from '../illustrations';
 import { FRACTURE_MODELS, plateLength, type FractureModel, type ViewKey } from '../../config/fractureCases';
 import { canalPath, distalPath, plateProfilePath, proximalPath } from './boneShapes';
-import { evaluateHole, plateById, widthAt, type T09State } from '../../engine/t09';
+import { evaluateHole, holeX, plateById, widthAt, type T09State } from '../../engine/t09';
 
 // High-contrast grayscale TEACHING schematics. Not clinical images, not DICOM.
 // 1 SVG unit = 1 model mm, so the 10 mm calibration bar is exact in model scale.
@@ -53,7 +54,34 @@ function ScaleBar({ x, y }: { x: number; y: number }) {
 }
 
 // ---------- fracture (shared model with T09) ----------
+//
+// Operative views (xray = false) use the painted bone and implant art when it has been
+// delivered: the painting is only a texture clipped to the model outline, so the outline,
+// fracture line, hole positions and screw lengths that the scoring uses stay exactly the
+// model's. X-ray schematics never use the paintings.
+
+/**
+ * Measured on the processed paintings (px): image height, mid-shaft thickness and the
+ * shaft's centre row. The painting is scaled so its shaft matches the model's mid-shaft
+ * width; anything outside the model outline is clipped away.
+ */
+const PAINT_FIT: Record<string, { h: number; shaft: number; cy: number }> = {
+  'C07-bone': { h: 224, shaft: 57, cy: 121 },
+  'C07-ulna': { h: 231, shaft: 38, cy: 171 },
+  'C08-bone': { h: 332, shaft: 84, cy: 180 },
+};
+
+/** y and height (model units) that place a painting's shaft centred on y = centre with the given width. */
+function fitPaint(key: string, width: number, centre = 0) {
+  const f = PAINT_FIT[key] ?? { h: 1, shaft: 1, cy: 0.5 };
+  const k = width / f.shaft;
+  return { y: centre - f.cy * k, height: f.h * k };
+}
+
 export function FractureBones({ m, s, view, xray = true }: { m: FractureModel; s: Pick<T09State, 'dx' | 'views'>; view: ViewKey; xray?: boolean }) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const painted = xray ? null : illust(`surgery/${m.caseId}-bone`);
+  if (painted) return <PaintedBones m={m} s={s} view={view} art={painted} uid={uid} />;
   const pose = s.views[view];
   const fill = xray ? BONE : 'url(#opBone)';
   const stroke = xray ? '#F8FAFC' : '#E2EDF8';
@@ -79,10 +107,75 @@ export function FractureBones({ m, s, view, xray = true }: { m: FractureModel; s
   );
 }
 
+function PaintedBones({ m, s, view, art, uid }: { m: FractureModel; s: Pick<T09State, 'dx' | 'views'>; view: ViewKey; art: string; uid: string }) {
+  const pose = s.views[view];
+  const t = `translate(${s.dx} ${pose.dy}) rotate(${pose.theta} ${m.fracture.x} 0)`;
+  const fit = fitPaint(`${m.caseId}-bone`, widthAt(m, m.length / 2));
+  const companionArt = m.companion ? illust(`surgery/${m.caseId}-ulna`) : null;
+  // the painting spans the whole bone; each fragment shows it through its own model outline
+  const texture = (clip: string) => (
+    <>
+      <path d={clip === 'p' ? proximalPath(m) : distalPath(m)} fill="#F4EBDD" />
+      <image href={art} x={0} y={fit.y} width={m.length} height={fit.height} preserveAspectRatio="none" clipPath={`url(#${uid}-${clip})`} />
+      <path d={clip === 'p' ? proximalPath(m) : distalPath(m)} fill="none" stroke="#B9A88E" strokeWidth=".25" strokeOpacity=".8" />
+    </>
+  );
+  const c = m.companion;
+  return (
+    <g data-art="painted">
+      <defs>
+        <clipPath id={`${uid}-p`}>
+          <path d={proximalPath(m)} />
+        </clipPath>
+        <clipPath id={`${uid}-d`}>
+          <path d={distalPath(m)} />
+        </clipPath>
+        {c && (
+          <>
+            <clipPath id={`${uid}-cp`}>
+              <rect x={2} y={c.offsetY - c.width / 2} width={m.fracture.x + 1} height={c.width} rx="1.5" />
+            </clipPath>
+            <clipPath id={`${uid}-cd`}>
+              <rect x={m.fracture.x + 2} y={c.offsetY - c.width / 2} width={m.length - m.fracture.x - 2} height={c.width} rx="1.5" />
+            </clipPath>
+          </>
+        )}
+      </defs>
+      {c && view === 'primary' && (
+        <g opacity=".8">
+          {(['cp', 'cd'] as const).map((k) => {
+            const body = companionArt ? (
+              <image href={companionArt} x={2} {...fitPaint(`${m.caseId}-ulna`, c.width, c.offsetY)} width={m.length - 2} preserveAspectRatio="none" clipPath={`url(#${uid}-${k})`} />
+            ) : (
+              <rect x={2} y={c.offsetY - c.width / 2} width={m.length - 2} height={c.width} fill="#EFE3CF" clipPath={`url(#${uid}-${k})`} />
+            );
+            return k === 'cp' ? <g key={k}>{body}</g> : <g key={k} transform={t}>{body}</g>;
+          })}
+        </g>
+      )}
+      {texture('p')}
+      <g transform={t} data-testid={`fragment-${view}`}>
+        {texture('d')}
+      </g>
+    </g>
+  );
+}
+
+/**
+ * Painted face-on look of a hole marker (the numbered row above the plate): an empty plate
+ * hole, or a screw head once locked. The status ring drawn on top keeps the colour code.
+ */
+export function HoleSprite({ x, y, r, locked }: { x: number; y: number; r: number; locked: boolean }) {
+  const art = illust(locked ? 'surgery/screw-head' : 'surgery/hole');
+  if (!art) return null;
+  return <image href={art} x={x - r} y={y - r} width={r * 2} height={r * 2} pointerEvents="none" />;
+}
+
 export const PLATE_THICKNESS: Record<string, number> = { C07: 1.1, C08: 1.5 };
 
 /** Plate + locked screws for any view; distal screws ride with the distal fragment. */
 export function Implants({ m, s, view, xray = true }: { m: FractureModel; s: T09State; view: ViewKey; xray?: boolean }) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const plate = plateById(m, s.plate.plateId);
   if (!plate || s.plate.side === null) return null;
   const len = plateLength(plate);
@@ -94,18 +187,41 @@ export function Implants({ m, s, view, xray = true }: { m: FractureModel; s: T09
     .filter(([, h]) => h.status === 'locked')
     .map(([k, h]) => ({ k, h, e: evaluateHole(m, s, Number(k), h.length) }));
   const metal = xray ? '#FFFFFF' : 'url(#opScrew)';
+  const art = xray
+    ? null
+    : { plate: illust('surgery/plate'), hole: illust('surgery/hole'), head: illust('surgery/screw-head'), side: illust('surgery/screw-side') };
+  const plateFill = xray ? '#E5E7EB' : art?.plate ? `url(#${uid}-steel)` : 'url(#opPlate)';
   const glyph = (lx: number, length: number, key: string) =>
-    face ? (
+    art?.head && face ? (
+      <image key={key} href={art.head} x={lx - 1.25} y={-1.25} width={2.5} height={2.5} />
+    ) : art?.side && !face ? (
+      // the shaft is stretched to the chosen length; the head sits on the plate exactly like the drawn screw
+      <image key={key} href={art.side} x={lx - 0.7} y={-widthAt(m, lx) / 2 - th * 0.6} width={1.4} height={length + th * 0.6} preserveAspectRatio="none" />
+    ) : face ? (
       <circle key={key} cx={lx} cy={0} r={1.1} fill={metal} stroke={xray ? 'none' : '#FACC15'} strokeWidth=".3" />
     ) : (
       <rect key={key} x={lx - 0.5} y={-widthAt(m, lx) / 2 - th * 0.6} width={1} height={length + th * 0.6} rx=".3" fill={metal} />
     );
   return (
     <g opacity={xray ? 0.95 : 1}>
+      {art?.plate && (
+        <defs>
+          <pattern id={`${uid}-steel`} patternUnits="userSpaceOnUse" width="24" height="6">
+            <image href={art.plate} width="24" height="6" preserveAspectRatio="none" />
+          </pattern>
+        </defs>
+      )}
       {face ? (
-        <rect x={s.plate.x} y={-2} width={len} height={4} rx="1.4" fill={xray ? '#E5E7EB' : 'url(#opPlate)'} opacity={xray ? 0.7 : 0.85} />
+        <>
+          <rect x={s.plate.x} y={-2} width={len} height={4} rx="1.4" fill={plateFill} opacity={xray ? 0.7 : art?.plate ? 1 : 0.85} stroke={art?.plate ? '#7C8792' : undefined} strokeWidth=".2" />
+          {/* hole sprites at the model's hole positions (the same x the drilling and scoring use) */}
+          {art?.hole &&
+            Array.from({ length: plate.holes }, (_, i) => holeX(m, s, i))
+              .filter((x): x is number => x !== null)
+              .map((x, i) => <image key={`h${i}`} href={art.hole!} x={x - 1.3} y={-1.3} width={2.6} height={2.6} />)}
+        </>
       ) : (
-        <path d={plateProfilePath(m, s.plate.x, len, th, s.plate.side === 'tension' ? 'top' : 'bottom')} fill={xray ? '#F1F5F9' : 'url(#opPlate)'} />
+        <path d={plateProfilePath(m, s.plate.x, len, th, s.plate.side === 'tension' ? 'top' : 'bottom')} fill={xray ? '#F1F5F9' : plateFill} stroke={art?.plate ? '#6B7680' : undefined} strokeWidth=".12" />
       )}
       {screws.filter((x) => x.e.fragment !== 'distal').map((x) => glyph(x.e.localX, x.h.length ?? 0, x.k))}
       <g transform={t}>{screws.filter((x) => x.e.fragment === 'distal').map((x) => glyph(x.e.localX, x.h.length ?? 0, x.k))}</g>

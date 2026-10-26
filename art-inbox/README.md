@@ -7,5 +7,5 @@
 |---|---|
 | `portraits/` | 已處理 → `src/assets/portraits/`（病例選擇頁） |
 | `home/`、`care/`、`guide/`、`kb/`、`scene/` | 已處理 → `src/assets/illust/`（首頁、照護、說明、知識庫、參考來源） |
-| `surgery/` | 已處理 → 手術鋪巾與器械圖示 |
+| `surgery/` | 已處理 → 手術鋪巾、器械圖示、骨頭、骨板、螺孔與螺釘（`src/assets/illust/surgery/`） |
 | `patients/<資料夾>/` | 待上傳：其他病例的病患姿態（清單見 `docs/art-assets.md` 第 3 節） |

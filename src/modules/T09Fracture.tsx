@@ -31,11 +31,15 @@ import { angleDiff, normalizeDeg, rad2deg, screenToModel, type Vec } from '../en
 import { ModuleShell, CheckResult } from '../components/ModuleShell';
 import { coachT09, type Coach } from '../engine/t09Coach';
 import { useModuleState } from '../components/useModuleState';
-import { FractureBones, FractureXRay, Implants } from '../components/art/XRay';
+import { FractureBones, FractureXRay, HoleSprite, Implants } from '../components/art/XRay';
+import { illust } from '../components/illustrations';
 import { Level, RefChips } from '../components/ui';
 import { useStore } from '../store';
 import { sound } from '../audio';
 import type { ModuleResult } from '../engine/session';
+
+/** painted hole markers: a ring around the hole / screw-head sprite instead of a filled dot */
+const paintedHoles = !!illust('surgery/hole');
 
 const STEPS = ['復位', '骨鉗暫夾', '骨板定位', '鑽孔鎖釘', '正交視角檢核'];
 
@@ -442,7 +446,8 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
                               data-testid={`hole-${i}`}
                             >
                               <circle r={2.4} fill="transparent" />
-                              <circle r={1.2} fill={h ? color : 'none'} stroke={color} strokeWidth={isPreset ? 0.45 : 0.25} strokeDasharray={isPreset ? undefined : '.5 .4'} />
+                              <HoleSprite x={0} y={0} r={1.2} locked={h?.status === 'locked'} />
+                              <circle r={1.2} fill={paintedHoles ? 'none' : h ? color : 'none'} stroke={color} strokeWidth={paintedHoles ? (isPreset || h ? 0.5 : 0.3) : isPreset ? 0.45 : 0.25} strokeDasharray={isPreset || h ? undefined : '.5 .4'} />
                               {sel === i && <circle r={2} fill="none" stroke="#F97316" strokeWidth=".4" />}
                               <text y={-1.8} fontSize="1.9" textAnchor="middle" fill="#8FB3CC">
                                 {i + 1}

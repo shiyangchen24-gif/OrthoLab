@@ -33,7 +33,7 @@ import {
 import { coachT09 } from '../engine/t09Coach';
 import { angleDiff, normalizeDeg, rad2deg, screenToModel, type Vec } from '../engine/geometry';
 import { useModuleState } from '../components/useModuleState';
-import { FractureBones, FractureXRay, Implants, PLATE_THICKNESS } from '../components/art/XRay';
+import { FractureBones, FractureXRay, HoleSprite, Implants, PLATE_THICKNESS } from '../components/art/XRay';
 import { Level, RefChips } from '../components/ui';
 import { CASE_META } from '../data/caseMeta';
 import { caseById } from '../data';
@@ -58,6 +58,8 @@ export function FractureSurgery({ caseId, onDone }: { caseId: string; onDone: (r
   const m = getModel(caseId);
   const c = caseById(caseId)!;
   const drape = illust('surgery/drape');
+  // painted hole markers replace the filled status dots with a ring around the sprite
+  const painted = !!illust('surgery/hole');
   const init = useCallback(() => initialT09(caseId), [caseId]);
   const ms = useModuleState<T09State>('PROC-ORIF-PLATE', init);
   const ex = useModuleState<Extra>('scene:T09', () => ({ intro: false, measured: [] }));
@@ -629,7 +631,8 @@ export function FractureSurgery({ caseId, onDone }: { caseId: string; onDone: (r
                       onHoldEnd={selected === 'drill' ? cancelHold : undefined}
                     >
                       <circle cx={x} cy={y} r="2.6" fill="transparent" />
-                      <circle cx={x} cy={y} r="1.3" fill={h ? color : 'none'} stroke={color} strokeWidth={isPreset ? 0.45 : 0.25} strokeDasharray={isPreset ? undefined : '.5 .4'} className="zone-mark" />
+                      <HoleSprite x={x} y={y} r={1.3} locked={h?.status === 'locked'} />
+                      <circle cx={x} cy={y} r="1.3" fill={painted ? 'none' : h ? color : 'none'} stroke={color} strokeWidth={painted ? (isPreset || h ? 0.5 : 0.3) : isPreset ? 0.45 : 0.25} strokeDasharray={isPreset || h ? undefined : '.5 .4'} className="zone-mark" />
                       {holding > 0 && (
                         <circle cx={x} cy={y} r="2.2" fill="none" stroke="#F97316" strokeWidth=".5" strokeDasharray={`${holding * 13.8} 13.8`} transform={`rotate(-90 ${x} ${y})`} pointerEvents="none" />
                       )}
