@@ -22,6 +22,10 @@ C07 診間的所有圖層都已是手繪 PNG。獸醫與飼主以「半身」構
 | `src/assets/scene/exam-table.png` | 原圖 1536 × 1024 透明 PNG，原尺寸放入；病患腳掌落在畫布 y = 190 的台面上（`seatY`）。 |
 | `src/assets/scene/clinic-room.png` | 原圖 1536 × 1024，裁成 16:9（1536 × 864，上方裁 95 px），讓地板線落在 70% 高度；未放大，以免假造解析度。 |
 
+### 病例選擇頁頭像（`src/assets/portraits/C01–C08.png`）
+
+原圖在 `art-inbox/portraits/`（透明 PNG）。裁去空白、等高縮放到 512 × 512，四腳底線統一在 y = 492。全部是健康、四腳著地的姿勢，不會在玩家定位前透露患肢。由 `src/components/CasePortrait.tsx` 顯示；缺圖的病例沿用向量角色。來源：使用者以 ChatGPT 生成。
+
 ## 1. 場景分層（C07 診間，`src/scenes/C07Clinic.tsx`）
 
 所有圖層都使用同一套場景座標（SVG viewBox 1600 × 900；直式手機改用 `430 40 780 900` 的取景）。圖片、命中區與工具一起縮放，不以螢幕像素寫死。

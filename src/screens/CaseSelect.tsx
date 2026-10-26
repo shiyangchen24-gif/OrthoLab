@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { cases, diseaseById, moduleById } from '../data';
 import { Patient } from '../components/art/Patient';
+import { CasePortrait } from '../components/CasePortrait';
 import { Modal } from '../components/ui';
 import { useStore } from '../store';
 import { navigate } from '../router';
@@ -35,7 +36,7 @@ export function CaseSelect() {
                 <span className="tag">難度 {c.difficulty}</span>
               </div>
               <div className="art">
-                <Patient species={c.species} breed={c.breed} pose={c.pose} side={c.side} size={170} />
+                <CasePortrait caseId={c.id} species={c.species} breed={c.breed} size={136} fallback={<Patient species={c.species} breed={c.breed} pose={c.pose} side={c.side} size={170} />} />
               </div>
               <dl>
                 <dt>病患</dt>

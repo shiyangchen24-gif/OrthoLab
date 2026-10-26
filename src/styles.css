@@ -436,3 +436,5 @@ body:has(.game) footer.site { display: none; }
 .game-dark .task-fb.ok { background: #0F3A2A; color: #BBF7D0; }
 .game-dark .task-fb.warn { background: #3A2A10; color: #FDE68A; }
 .game-dark .task-fb.info { background: #12324A; color: #BAE6FD; }
+/* painted case portraits: transparent PNG on the card's soft gradient, paws resting on the card floor */
+.case-card .art .case-portrait { display: block; width: auto; height: 100%; max-height: 136px; object-fit: contain; filter: drop-shadow(0 4px 4px rgb(90 74 60 / 14%)); }

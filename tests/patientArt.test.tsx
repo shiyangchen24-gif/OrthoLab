@@ -170,3 +170,16 @@ describe('PatientView raster mode', () => {
     expect(active()).toBe('sit');
   });
 });
+
+describe('case portraits', () => {
+  it('every case has a painted portrait; a missing one falls back to the vector patient', async () => {
+    const { portraitFor, CasePortrait } = await import('../src/components/CasePortrait');
+    const { cases } = await import('../src/data');
+    for (const c of cases) expect(portraitFor(c.id)).not.toBeNull();
+    expect(portraitFor('C99')).toBeNull();
+    const html = renderToStaticMarkup(<CasePortrait caseId="C99" species="犬" breed="測試" size={100} fallback={<span data-testid="vector" />} />);
+    expect(html).toContain('data-testid="vector"');
+    const img = renderToStaticMarkup(<CasePortrait caseId="C07" species="犬" breed="瑪爾濟斯" size={100} fallback={null} />);
+    expect(img).toContain('alt="瑪爾濟斯（犬）病例頭像，教學插畫"');
+  });
+});
