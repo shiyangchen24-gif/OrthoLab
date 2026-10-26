@@ -4,6 +4,9 @@ import { Patient } from '../components/art/Patient';
 import { Modal } from '../components/ui';
 import { useStore } from '../store';
 import { navigate } from '../router';
+import { illust } from '../components/illustrations';
+import { resolvePatientArt } from '../components/patientAssets';
+import { sceneImage } from '../scenes/sceneAssets';
 
 function ClinicScene() {
   return (
@@ -66,43 +69,79 @@ export function Home() {
     navigate('play');
   };
 
+  const room = illust('home/hero-room');
+  const vet = sceneImage('vet');
+  const dog = resolvePatientArt('犬', '瑪爾濟斯')?.urls.sit;
+  const cat = illust('home/hero-cat');
+  const painted = !!(room && vet && dog);
+  const FEATURES = [
+    { title: '檢查與推理', text: '從問診、檢查到鑑別診斷，培養臨床思考力', art: 'home/card-exam', go: () => navigate('cases') },
+    { title: '手術操作', text: '透過互動步驟學習骨科手術關鍵（教學幾何）', art: 'home/card-surgery', go: () => navigate('kb') },
+    { title: '照護與追蹤', text: '術後照護、復健與追蹤的衛教重點', art: 'home/card-care', go: () => navigate('kb') },
+  ];
+
   return (
     <div className="stack">
-      <section className="hero">
-        <div>
+      <section className={painted ? 'home-hero' : 'hero'}>
+        <div className="home-hero-text">
           <span className="tag info">獸醫骨科互動教學模擬</span>
-          <h1 style={{ marginTop: 8 }}>
+          <h1 className="home-title">
             Ortho<b>Lab</b>
           </h1>
-          <p className="lead">扮演獸醫：接診 → 蒐集檢查線索 → 臨床推理 → 選擇處置 → 手術操作或非手術管理 → 術後照護 → 學習回饋。透過線索理解選擇，再用操作理解術式。</p>
-          <p className="small muted">8 個虛構教學病例・5 個可操作模組・所有評分皆為本遊戲教學評分。</p>
+          <p className="home-sub">🐾 獸醫骨科互動教學</p>
+          <p className="lead">扮演獸醫：接診 → 蒐集檢查線索 → 臨床推理 → 選擇處置 → 手術操作或非手術管理 → 術後照護 → 學習回饋。</p>
           <div className="menu-grid">
             <button className="btn primary lg" onClick={begin} data-testid="start">
-              🩺 {firstDone === 0 && !inProgress ? '開始示範關卡（C07）' : `開始接診${!inProgress ? `（${nextCase.id}）` : ''}`}
+              🐾 {firstDone === 0 && !inProgress ? '開始示範關卡（C07）' : `開始接診${!inProgress ? `（${nextCase.id}）` : ''}`}
             </button>
             <button className="btn lg" onClick={() => navigate('cases')} data-testid="menu-cases">
-              📋 病例選擇
+              📁 病例選擇
             </button>
             <button className="btn lg" disabled={!inProgress} onClick={() => navigate('play')} data-testid="continue">
-              ▶ 繼續進度{inProgress ? `（${inProgress.caseId}）` : ''}
-            </button>
-            <button className="btn lg" onClick={() => navigate('kb')}>
-              📚 知識庫
-            </button>
-            <button className="btn lg" onClick={() => navigate('refs')}>
-              🔗 參考來源
-            </button>
-            <button className="btn lg" onClick={() => navigate('settings')}>
-              ⚙ 設定
+              📊 繼續進度{inProgress ? `（${inProgress.caseId}）` : ''}
             </button>
           </div>
-          <p className="small muted" style={{ marginTop: 12 }}>
-            已完成首次作答：{firstDone}/{cases.length} 病例。
+          <div className="home-progress" aria-label={`已完成首次作答 ${firstDone}/${cases.length} 病例`}>
+            <span className="small">已完成 {firstDone} / {cases.length}</span>
+            <div className="progress" aria-hidden>
+              <i style={{ width: `${(firstDone / cases.length) * 100}%` }} />
+            </div>
+          </div>
+          <p className="small muted home-links">
+            <button className="btn ghost sm" onClick={() => navigate('kb')}>📚 知識庫</button>
+            <button className="btn ghost sm" onClick={() => navigate('refs')}>🔗 參考來源</button>
+            <button className="btn ghost sm" onClick={() => navigate('settings')}>⚙ 設定</button>
             <button className="btn ghost sm" onClick={() => navigate('about')}>說明與限制</button>
           </p>
+          <p className="small muted">8 個虛構教學病例・5 個可操作模組・所有評分皆為本遊戲教學評分。</p>
         </div>
-        <ClinicScene />
+        {painted ? (
+          <div className="home-stage" style={{ backgroundImage: `url(${room})` }} aria-hidden>
+            {/* the vet stands behind the painted table: clipped at the table top */}
+            <div className="home-vet-clip">
+              <img src={vet!} alt="" />
+            </div>
+            <img className="home-dog" src={dog!} alt="" />
+            {cat && <img className="home-cat" src={cat} alt="" />}
+          </div>
+        ) : (
+          <ClinicScene />
+        )}
       </section>
+      {painted && (
+        <section className="home-features" aria-label="學習內容">
+          {FEATURES.map((f) => (
+            <button key={f.title} className="home-feature" onClick={f.go}>
+              {illust(f.art) && <img src={illust(f.art)!} alt="" aria-hidden />}
+              <span>
+                <b>{f.title}</b>
+                <span className="small muted">{f.text}</span>
+              </span>
+              <span aria-hidden className="chev">›</span>
+            </button>
+          ))}
+        </section>
+      )}
       {inProgress && (
         <div className="banner">
           <span aria-hidden>⏸</span>

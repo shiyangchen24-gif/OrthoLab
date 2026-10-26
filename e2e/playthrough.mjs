@@ -83,6 +83,7 @@ async function revealAll(page, caseId) {
   await answerQuiz(page);
 }
 
+let deckShots = 0;
 async function deck(page) {
   // play every round: select correct cards, submit, next
   for (let round = 0; round < 5; round++) {
@@ -95,6 +96,7 @@ async function deck(page) {
       const pressed = (await c.getAttribute('aria-pressed')) === 'true';
       if (correct !== pressed) await c.click();
     }
+    if (round === 0) await page.screenshot({ path: `${OUT}/deck-${++deckShots}.png`, fullPage: true });
     await page.click(tid('deck-submit'));
     await page.click(tid('deck-next'));
     if (await page.locator('[aria-label="學習回饋"]').count()) return;
@@ -372,13 +374,20 @@ const browser = await chromium.launch();
   await sceneUse(page, 'palpate', 'limb-LH');
   assert((await page.locator(tid('task-feedback')).textContent()).includes('不需重複碰觸'), 'palpating a non-affected limb gives guidance, no progress');
   assert((await tablePv.getAttribute('data-palpation')) === '0', 'palpating a non-affected limb plays no withdrawal');
+  // record every pose the table patient shows, so the brief withdrawal is observed without timing races
+  await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="table-patient"] [data-active-pose]');
+    window.__poses = el ? [el.getAttribute('data-active-pose')] : [];
+    if (el) new MutationObserver(() => window.__poses.push(el.getAttribute('data-active-pose'))).observe(el, { attributes: true, attributeFilter: ['data-active-pose'] });
+  });
   await sceneUse(page, 'palpate', 'limb-LF');
   const fbPalp = await page.locator(tid('task-feedback')).textContent();
   if ((await tablePv.getAttribute('data-art')) === 'raster') {
     // painted art: the aligned withdrawal pose shows briefly, then the lifted pose returns
     const poseNow = () => tablePv.locator('[data-active-pose]').getAttribute('data-active-pose');
-    assert((await tablePv.getAttribute('data-palpation')) === '1' && (await poseNow()) === 'withdraw-LF', 'valid palpation swaps to the left-forelimb withdrawal pose');
     await page.waitForTimeout(900);
+    const poses = await page.evaluate(() => window.__poses);
+    assert((await tablePv.getAttribute('data-palpation')) === '1' && poses.join(',') === 'lift-LF,withdraw-LF,lift-LF', `valid palpation swaps to the left-forelimb withdrawal pose and back once (${poses.join(' → ')})`);
     assert((await poseNow()) === 'lift-LF', 'withdrawal pose returns to the lifted rest pose');
   } else {
     assert((await tablePv.getAttribute('data-palpation')) === '1' && (await tablePv.locator('[data-limb="LF"] .palpation-withdraw').count()) === 1, 'valid palpation plays the withdrawal on the left forelimb only');

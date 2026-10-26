@@ -16,6 +16,9 @@ import { T01Tplo } from '../modules/T01Tplo';
 import { T02Fhne } from '../modules/T02Fhne';
 import { T03Mpl } from '../modules/T03Mpl';
 import { CardDeckGame } from '../components/CardDeckGame';
+import { CasePortrait } from '../components/CasePortrait';
+import { limbsFromSide } from '../components/PatientView';
+import { resolvePatientArt } from '../components/patientAssets';
 import { RefChips, ScoreTile, Stepper } from '../components/ui';
 import { useStore } from '../store';
 import { navigate } from '../router';
@@ -161,6 +164,25 @@ function ExplainStage() {
   );
 }
 
+/** The patient during post-op care: the bandaged painted pose when it exists for the operated limb, else the case portrait. */
+function CarePatient({ caseId }: { caseId: string }) {
+  const c = caseById(caseId)!;
+  const limbs = limbsFromSide(c.side);
+  const art = resolvePatientArt(c.species, c.breed);
+  const bandaged = limbs.length === 1 ? art?.urls[`bandaged-${limbs[0]}`] : undefined;
+  return (
+    <figure className="care-figure">
+      <span className="tag">模擬情境</span>
+      {bandaged ? (
+        <img src={bandaged} alt={`${c.breed}術後，${c.side}包紮（教學插畫）`} data-testid="care-bandaged" />
+      ) : (
+        <CasePortrait caseId={c.id} species={c.species} breed={c.breed} size={180} fallback={null} />
+      )}
+      <figcaption className="small muted">{CASE_META[c.id]?.name ?? c.id}・{c.side}・教學示意，不代表實際病程</figcaption>
+    </figure>
+  );
+}
+
 function CareStage() {
   const { data, updateSession } = useStore();
   const s = data.session!;
@@ -169,7 +191,14 @@ function CareStage() {
   return (
     <StageFrame>
       {deck ? (
-        <CardDeckGame deck={deck} stateKey={`care:${proc}`} title={`術後照護與衛教・${deck.title}`} subtitle={`依 ${deck.carePlanId}（原始狀態：待專科審閱）`} onDone={(r) => updateSession((x) => finishCare(x, r))} />
+        <CardDeckGame
+          deck={deck}
+          stateKey={`care:${proc}`}
+          title={`術後照護與衛教・${deck.title}`}
+          subtitle={`依 ${deck.carePlanId}（原始狀態：待專科審閱）`}
+          onDone={(r) => updateSession((x) => finishCare(x, r))}
+          intro={<CarePatient caseId={s.caseId} />}
+        />
       ) : (
         <Fallback text="此術式沒有照護資料。" />
       )}

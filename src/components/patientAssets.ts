@@ -22,7 +22,8 @@
 import type { Limb } from '../data/caseMeta';
 import type { Species } from '../types';
 
-export type PoseKey = 'sit' | `lift-${Limb}` | `withdraw-${Limb}`;
+/** rest / lifted / palpation-withdrawal poses, plus a post-op bandaged pose used by the care stage */
+export type PoseKey = 'sit' | `lift-${Limb}` | `withdraw-${Limb}` | `bandaged-${Limb}`;
 
 export interface HitBox {
   x: number;
@@ -69,11 +70,12 @@ export const CHARACTER_ART: CharacterArtSpec[] = [
     screenRight: 'patient-left',
     canvas: { ...ART_CANVAS },
     baseline: { x: 510, y: 1002 },
-    poses: { sit: 'sit.png', 'lift-LF': 'lift-LF.png', 'withdraw-LF': 'withdraw-LF.png' },
+    poses: { sit: 'sit.png', 'lift-LF': 'lift-LF.png', 'withdraw-LF': 'withdraw-LF.png', 'bandaged-LF': 'bandaged-LF.png' },
     // measured on the delivered art (viewBox units = canvas px / 3)
     limbBoxes: {
       sit: { RF: { x: 106, y: 200, width: 50, height: 134 }, LF: { x: 156, y: 200, width: 50, height: 134 }, RH: { x: 64, y: 258, width: 46, height: 74 }, LH: { x: 206, y: 262, width: 48, height: 70 } },
       'lift-LF': { RF: { x: 106, y: 200, width: 52, height: 134 }, LF: { x: 172, y: 194, width: 64, height: 74 }, RH: { x: 64, y: 258, width: 46, height: 74 }, LH: { x: 198, y: 272, width: 60, height: 60 } },
+      'bandaged-LF': { RF: { x: 106, y: 200, width: 50, height: 134 }, LF: { x: 156, y: 200, width: 50, height: 134 }, RH: { x: 64, y: 258, width: 46, height: 74 }, LH: { x: 206, y: 262, width: 48, height: 70 } },
       'withdraw-LF': { RF: { x: 106, y: 200, width: 52, height: 134 }, LF: { x: 168, y: 188, width: 64, height: 70 }, RH: { x: 64, y: 258, width: 46, height: 74 }, LH: { x: 198, y: 272, width: 60, height: 60 } },
     },
     bodyBox: { x: 84, y: 22, width: 170, height: 232 },

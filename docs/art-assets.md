@@ -26,6 +26,20 @@ C07 診間的所有圖層都已是手繪 PNG。獸醫與飼主以「半身」構
 
 原圖在 `art-inbox/portraits/`（透明 PNG）。裁去空白、等高縮放到 512 × 512，四腳底線統一在 y = 492。全部是健康、四腳著地的姿勢，不會在玩家定位前透露患肢。由 `src/components/CasePortrait.tsx` 顯示；缺圖的病例沿用向量角色。來源：使用者以 ChatGPT 生成。
 
+### 頁面插圖（`src/assets/illust/`，由 `src/components/illustrations.ts` 載入）
+
+原圖在 `art-inbox/`；不透明插圖縮到寬 720 px（首頁背景 1672 px、圖書室 1536 px）並轉成 WebP，透明的 `hero-cat` 保留 PNG。
+
+| 畫面 | 使用的插圖 |
+|---|---|
+| 首頁 | `home/hero-room` 背景；獸醫（`scene/vet.png`，裁在檢查台台面後方）、瑪爾濟斯 `sit`、`home/hero-cat`；下方三張功能卡 `home/card-exam`、`card-surgery`、`card-care` |
+| 術後照護 | 照護卡依類別配圖：活動 `care/activity`、傷口 `care/wound`、疼痛 `care/pain`、追蹤 `care/recheck`、警訊 `care/warning`（正確卡與干擾卡共用同一類別圖，不會洩漏答案）；C07 顯示 `patients/maltese/bandaged-LF.png`（左前肢包紮，與其他姿態同畫布），其他病例顯示頭像 |
+| 說明 | 六步驟 `guide/step1–6`，側邊選單：遊戲介紹／操作方式／教學限制／資料審閱 |
+| 知識庫 | 疾病卡 `kb/D01–D10`；右側詳細面板分「症狀／檢查／處置」。插圖下方註明「解剖細節待獸醫審閱」 |
+| 參考來源 | 頁首 `scene/library-room` |
+
+尚未接入：`surgery/drape.png` 與 `surgery/tools/*`（手術畫面的骨頭、骨板、螺釘位置用於判分，維持程式繪製；鋪巾與器械圖示待後續接入）。
+
 ## 1. 場景分層（C07 診間，`src/scenes/C07Clinic.tsx`）
 
 所有圖層都使用同一套場景座標（SVG viewBox 1600 × 900；直式手機改用 `430 40 780 900` 的取景）。圖片、命中區與工具一起縮放，不以螢幕像素寫死。

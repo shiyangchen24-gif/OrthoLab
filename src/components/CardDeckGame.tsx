@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { scoreRound, type CareDeck } from '../data/careDecks';
+import { useState, type ReactNode } from 'react';
+import { scoreRound, type CareCard, type CareDeck } from '../data/careDecks';
+import { illust } from './illustrations';
 import { ModuleShell } from './ModuleShell';
 import { useModuleState } from './useModuleState';
 import { RefChips } from './ui';
@@ -13,11 +14,27 @@ interface DeckState {
   completed: boolean;
 }
 
+/** Illustration for a card, chosen by its category only (correct cards and distractors share them). */
+function cardArt(card: CareCard): string | null {
+  switch (card.tag) {
+    case '活動':
+      return illust('care/activity');
+    case '追蹤':
+      return illust('care/recheck');
+    case '警訊':
+      return illust('care/warning');
+    case '傷口與疼痛':
+      return illust(/傷口/.test(card.text) ? 'care/wound' : 'care/pain');
+    default:
+      return null;
+  }
+}
+
 /**
  * Multi-round care-card builder. Each round is scored on its FIRST submission
  * (kept in sticky storage); later submissions only unlock progress.
  */
-export function CardDeckGame({ deck, stateKey, title, subtitle, onDone, theme = 'clinic' }: { deck: CareDeck; stateKey: string; title: string; subtitle?: string; onDone: (r: ModuleResult) => void; theme?: 'clinic' | 'surgery' }) {
+export function CardDeckGame({ deck, stateKey, title, subtitle, onDone, theme = 'clinic', intro }: { deck: CareDeck; stateKey: string; title: string; subtitle?: string; onDone: (r: ModuleResult) => void; theme?: 'clinic' | 'surgery'; intro?: ReactNode }) {
   const ms = useModuleState<DeckState>(stateKey, () => ({ round: 0, picks: {}, feedback: {}, completed: false }));
   const s = ms.state;
   const round = deck.rounds[Math.min(s.round, deck.rounds.length - 1)];
@@ -71,6 +88,25 @@ export function CardDeckGame({ deck, stateKey, title, subtitle, onDone, theme = 
       onHint={ms.countHint}
       theme={theme}
     >
+      <div className="care-board">
+        {intro && <div className="care-patient">{intro}</div>}
+        <section className="care-plan" aria-label="照護計畫" data-testid="care-plan">
+          <h4>🐾 照護計畫・{round.title}</h4>
+          {picks.length ? (
+            <ul>
+              {round.cards
+                .filter((c) => picks.includes(c.id))
+                .map((c) => (
+                  <li key={c.id}>
+                    <span className="tag">{c.tag}</span> {c.text}
+                  </li>
+                ))}
+            </ul>
+          ) : (
+            <p className="small muted">尚未加入卡片：從下方選出適合本病例的照護項目。</p>
+          )}
+        </section>
+      </div>
       <p>{round.prompt}</p>
       <div className="deck" role="group" aria-label={round.title}>
         {round.cards.map((card) => {
@@ -79,6 +115,7 @@ export function CardDeckGame({ deck, stateKey, title, subtitle, onDone, theme = 
           if (shown) cls = on ? (card.correct ? 'right' : 'wrong') : card.correct ? 'missed' : '';
           return (
             <button key={card.id} className={`care-card ${cls}`} aria-pressed={on} onClick={() => toggle(card.id)} data-testid={`card-${card.id}`} data-correct={card.correct ? 'y' : 'n'}>
+              {cardArt(card) && <img className="care-card-art" src={cardArt(card)!} alt="" aria-hidden loading="lazy" />}
               <span className="tag">{card.tag}</span>
               <b>{card.text}</b>
               {shown && (on || card.correct) && (

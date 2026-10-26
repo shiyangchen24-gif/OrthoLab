@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { illust } from '../components/illustrations';
 import { assets, carePlans, diseases, modules, options, rawTolerances, steps, techniques, artStyles } from '../data';
 import { CONFLICT_LOG, TOLERANCES } from '../config/tolerances';
 import { Flags, RefChips } from '../components/ui';
@@ -20,35 +22,111 @@ const fmtBand = (cfg: ToleranceConfig) =>
     })
     .join('；');
 
+type KbSection = 'disease' | 'procedure' | 'care' | 'data';
+const SECTIONS: { id: KbSection; label: string; icon: string }[] = [
+  { id: 'disease', label: '疾病', icon: '🐾' },
+  { id: 'procedure', label: '術式', icon: '🩺' },
+  { id: 'care', label: '照護', icon: '💙' },
+  { id: 'data', label: '資料與容差', icon: '📊' },
+];
+type DetailTab = 'signs' | 'exam' | 'treat';
+
 export function Knowledge() {
+  const [section, setSection] = useState<KbSection>('disease');
+  const [picked, setPicked] = useState(diseases.find((d) => d.id === 'D09')?.id ?? diseases[0].id);
+  const [tab, setTab] = useState<DetailTab>('signs');
+  const d = diseases.find((x) => x.id === picked)!;
+  const pick = (id: string) => {
+    setPicked(id);
+    setTab('signs');
+    // on narrow screens the detail sits below the grid
+    window.requestAnimationFrame(() => document.getElementById('kb-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+  };
   return (
-    <div className="stack">
-      <h1>知識庫</h1>
-      <p className="muted">整理自附件資料（10 張工作表）。標示「待審閱」的內容尚未找到直接支持，僅供教學討論。</p>
-
-      <h2>疾病庫</h2>
-      {diseases.map((d) => (
-        <details key={d.id} className="kb">
-          <summary>
-            {d.id} {d.name}{' '}
-            {d.hasPlayableCase ? <span className="tag ok">有可玩病例</span> : <span className="tag">本版無可玩病例</span>}{' '}
-            <span className="tag">來源標示：{d.versionScope}</span>
-          </summary>
-          <dl className="small" style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '4px 12px' }}>
-            <dt>物種／部位</dt><dd>{d.species}／{d.region}</dd>
-            <dt>常見表現</dt><dd>{d.presentation}</dd>
-            <dt>診斷流程</dt><dd>{d.diagnosticFlow}</dd>
-            <dt>鑑別診斷</dt><dd>{d.differentials}</dd>
-            <dt>處置方向</dt><dd>{d.treatmentDirection}</dd>
-            <dt>選術條件</dt><dd>{d.selectionCriteria}</dd>
-            <dt>限制與修正</dt><dd>{d.limitations}</dd>
-          </dl>
-          <Flags flags={d.reviewFlags} />
-          {!d.hasPlayableCase && <p className="small muted">本版沒有此疾病的病例、檢查線索與操作資料；僅提供決策知識，後續需補充病例與專科審閱。</p>}
-          <RefChips ids={d.referenceIds} />
-        </details>
-      ))}
-
+    <div className="kb-page">
+      <header className="kb-head">
+        <h1>知識庫</h1>
+        <p className="muted">整理自附件資料（10 張工作表）。標示「待審閱」的內容尚未找到直接支持，僅供教學討論。</p>
+      </header>
+      <nav className="kb-nav" role="tablist" aria-label="知識庫分類">
+        {SECTIONS.map((x) => (
+          <button key={x.id} role="tab" aria-selected={section === x.id} className={section === x.id ? 'on' : ''} onClick={() => setSection(x.id)} data-testid={`kb-tab-${x.id}`}>
+            <span aria-hidden>{x.icon}</span> {x.label}
+          </button>
+        ))}
+      </nav>
+      <div className="kb-body" role="tabpanel">
+        {section === 'disease' && (
+          <div className="kb-diseases">
+            <div className="kb-grid">
+              {diseases.map((x) => (
+                <button key={x.id} className={`kb-card ${picked === x.id ? 'on' : ''}`} aria-pressed={picked === x.id} onClick={() => pick(x.id)} data-testid={`kb-card-${x.id}`}>
+                  {illust(`kb/${x.id}`) ? <img src={illust(`kb/${x.id}`)!} alt="" aria-hidden loading="lazy" /> : <span className="kb-card-blank" aria-hidden>🦴</span>}
+                  <span className="kb-card-name">
+                    <b>{x.name}</b>
+                    <span className="small muted">{x.id}・{x.hasPlayableCase ? '有可玩病例' : '本版無可玩病例'}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <article id="kb-detail" className="kb-detail" aria-live="polite" data-testid="kb-detail">
+              <div className="kb-detail-head">
+                <span className="kb-detail-icon" aria-hidden>🦴</span>
+                <div>
+                  <h2>{d.name}</h2>
+                  <p className="small muted">{d.id}・{d.species}／{d.region}・來源標示：{d.versionScope}</p>
+                </div>
+              </div>
+              <div className="kb-tabs" role="tablist" aria-label="疾病內容">
+                {([
+                  ['signs', '症狀'],
+                  ['exam', '檢查'],
+                  ['treat', '處置'],
+                ] as const).map(([id, label]) => (
+                  <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)} data-testid={`kb-detail-${id}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="kb-detail-body">
+                {illust(`kb/${d.id}`) && (
+                  <figure>
+                    <img src={illust(`kb/${d.id}`)!} alt={`${d.name}教學插圖`} />
+                    <figcaption className="small muted">教學示意插圖（ChatGPT 生成），解剖細節待獸醫審閱。</figcaption>
+                  </figure>
+                )}
+                <dl className="small">
+                  {tab === 'signs' && (
+                    <>
+                      <dt>常見表現</dt><dd>{d.presentation}</dd>
+                    </>
+                  )}
+                  {tab === 'exam' && (
+                    <>
+                      <dt>診斷流程</dt><dd>{d.diagnosticFlow}</dd>
+                      <dt>鑑別診斷</dt><dd>{d.differentials}</dd>
+                    </>
+                  )}
+                  {tab === 'treat' && (
+                    <>
+                      <dt>處置方向</dt><dd>{d.treatmentDirection}</dd>
+                      <dt>選術條件</dt><dd>{d.selectionCriteria}</dd>
+                      <dt>限制與修正</dt><dd>{d.limitations}</dd>
+                    </>
+                  )}
+                </dl>
+              </div>
+              <Flags flags={d.reviewFlags} />
+              {!d.hasPlayableCase && <p className="small muted">本版沒有此疾病的病例、檢查線索與操作資料；僅提供決策知識，後續需補充病例與專科審閱。</p>}
+              <div className="row">
+                <span className="small">延伸閱讀</span>
+                <RefChips ids={d.referenceIds} />
+              </div>
+            </article>
+          </div>
+        )}
+        {section === 'procedure' && (
+          <div className="stack">
       <h2>處置技術、模組與 ID 對照</h2>
       <p className="small muted">原始資料的 T05、T06 同時代表不同處置。本版以唯一的處置技術 ID 與模組 ID 區分，原始 ID 保留於對照欄。</p>
       <div className="table-wrap">
@@ -103,6 +181,10 @@ export function Knowledge() {
         </details>
       ))}
 
+          </div>
+        )}
+        {section === 'care' && (
+          <div className="stack">
       <h2>術後與照護資源</h2>
       <div className="table-wrap">
         <table className="data">
@@ -118,6 +200,10 @@ export function Knowledge() {
         </table>
       </div>
 
+          </div>
+        )}
+        {section === 'data' && (
+          <div className="stack">
       <h2>T09 容差設定（遊戲幾何門檻，非臨床標準）</h2>
       <p className="small">唯一設定檔：<code>src/config/tolerances.ts</code>。角度、位移、螺釘數與距離都不能直接推論必然骨不癒合或其他併發症。</p>
       <div className="table-wrap">
@@ -165,6 +251,9 @@ export function Knowledge() {
           <li key={a.id}>{a.id} {a.scene}：{a.style}｜背景 {a.background}｜重點 {a.accent}</li>
         ))}
       </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -6,4 +6,5 @@
 | 資料夾 | 狀態 |
 |---|---|
 | `portraits/` | 已處理 → `src/assets/portraits/`（病例選擇頁） |
-| 其他 | 已收到，尚未接入畫面（見 `docs/art-assets.md`） |
+| `home/`、`care/`、`guide/`、`kb/`、`scene/` | 已處理 → `src/assets/illust/`（首頁、照護、說明、知識庫、參考來源） |
+| `surgery/` | 已收到，尚未接入手術畫面 |

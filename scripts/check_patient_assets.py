@@ -26,7 +26,7 @@ except ImportError:  # pragma: no cover
 ROOT = Path(__file__).resolve().parent.parent
 
 CHARACTERS = {
-    "maltese": {"canvas": (1020, 1140), "baseline_y": 1002, "poses": ["sit.png", "lift-LF.png", "withdraw-LF.png"]},
+    "maltese": {"canvas": (1020, 1140), "baseline_y": 1002, "poses": ["sit.png", "lift-LF.png", "withdraw-LF.png", "bandaged-LF.png"]},
 }
 SCENE = {
     "clinic-room.png": {"canvas": (1536, 864), "opaque": True},

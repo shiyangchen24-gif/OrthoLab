@@ -18,7 +18,7 @@ const fixture = (files: Record<string, string>) => resolvePatientArt('犬', '瑪
 describe('raster art manifest', () => {
   it('bundled art: the Maltese poses and every clinic scene layer are delivered', () => {
     const art = resolvePatientArt('犬', '瑪爾濟斯')!;
-    expect(Object.keys(art.urls).sort()).toEqual(['lift-LF', 'sit', 'withdraw-LF']);
+    expect(Object.keys(art.urls).sort()).toEqual(['bandaged-LF', 'lift-LF', 'sit', 'withdraw-LF']);
     expect(missingArt()).toEqual([]);
     expect(sceneImage('background')).not.toBeNull();
     expect(sceneImage('vet')).not.toBeNull();
