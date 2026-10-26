@@ -3,7 +3,7 @@
 // session engine (localisation, clue prerequisites, reasoning, four-category
 // decisions); this file only maps tool actions onto them.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { caseById, cluesForCase, optionsForCase } from '../data';
 import { CASE_META, LIMB_LABEL, type Limb } from '../data/caseMeta';
 import {
@@ -79,6 +79,16 @@ export function C07Clinic() {
   // illustration feedback only: replays the withdrawal for a valid first palpation of this session
   const [palpation, setPalpation] = useState<PalpationEvent | null>(null);
   const portrait = usePortrait();
+  // a stage taller than the room fills its height and crops the sides (no empty bands); wider stages letterbox
+  const stageRef = useRef<SVGSVGElement>(null);
+  const [fill, setFill] = useState(false);
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([e]) => setFill(e.contentRect.height > 0 && e.contentRect.width / e.contentRect.height < W / H));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const heard = (s.moduleState['scene:C07:heard'] as boolean | undefined) ?? false;
   const phase = phaseOf(s, heard);
   const { fb, say } = useFeedback();
@@ -273,7 +283,8 @@ export function C07Clinic() {
       <svg
         className="scene-svg"
         viewBox={portrait ? PORTRAIT_VB : DESK_VB}
-        preserveAspectRatio="xMidYMid meet"
+        ref={stageRef}
+        preserveAspectRatio={!portrait && fill ? 'xMidYMid slice' : 'xMidYMid meet'}
         role="application"
         aria-label="診間場景：用工具盤的工具在飼主或病患身上操作"
         data-testid="clinic-stage"

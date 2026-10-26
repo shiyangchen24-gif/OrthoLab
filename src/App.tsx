@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { useRoute, navigate, type Route } from './router';
+import { useRoute, navigate } from './router';
+import { MainNav, NAV } from './components/nav';
 import { useStore } from './store';
 import { Home } from './screens/Home';
 import { CaseSelect } from './screens/CaseSelect';
@@ -11,15 +12,6 @@ import { About } from './screens/About';
 import { Modal } from './components/ui';
 import { PatientGallery } from './screens/PatientGallery';
 
-const NAV: { route: Route; label: string }[] = [
-  { route: 'home', label: '首頁' },
-  { route: 'cases', label: '病例' },
-  { route: 'play', label: '診間' },
-  { route: 'kb', label: '知識庫' },
-  { route: 'refs', label: '參考來源' },
-  { route: 'settings', label: '設定' },
-  { route: 'about', label: '說明' },
-];
 
 export function App() {
   const { route } = useRoute();
@@ -36,13 +28,7 @@ export function App() {
             Ortho<b>Lab</b>
           </span>
         </button>
-        <nav className="topnav" aria-label="主選單">
-          {NAV.map((n) => (
-            <button key={n.route} aria-current={route === n.route ? 'page' : undefined} onClick={() => navigate(n.route)}>
-              {n.label}
-            </button>
-          ))}
-        </nav>
+        <MainNav route={route} />
       </header>
       <main>
         {loadMessage && (

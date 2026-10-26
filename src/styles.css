@@ -620,3 +620,101 @@ input.switch:focus-visible { outline: 3px solid #3A9E94; outline-offset: 2px; }
 .results-note { text-align: center; margin: 0; }
 @media (max-width: 760px) { .results-hero { grid-template-columns: 120px minmax(0, 1fr); } .results-vet { display: none; } .results-head h2 { font-size: 1.8rem; } .results-actions .btn.lg { min-width: 0; flex: 1 1 auto; } }
 @media (max-width: 600px) { .results-next { grid-template-columns: auto minmax(0, 1fr); } .results-next > a { grid-column: 1 / -1; justify-self: start; } }
+/* ---------- navigation with line icons ---------- */
+.topnav button { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.1; padding: 4px 10px; }
+.topnav button svg { color: #4A6B85; }
+.topnav button[aria-current='page'] { background: #E3F2EF; color: #1F5F58; }
+.topnav button[aria-current='page'] svg { color: #2C8C82; }
+.topnav .nav-label { font-size: .78rem; }
+.topnav button:focus-visible { outline: 3px solid #3A9E94; outline-offset: 1px; }
+
+/* ---------- scene chrome (reference layout) ---------- */
+body:has(.game) .topbar { display: none; }
+main:has(> .game) { padding: 0; }
+.game { margin: 0; height: 100dvh; grid-template-rows: auto minmax(0, 1fr); }
+.game-top { flex-wrap: nowrap; gap: 12px; padding: 6px 14px; background: rgb(255 252 246 / 96%); border-bottom: 1px solid var(--cozy-line); box-shadow: 0 2px 8px rgb(90 74 60 / 6%); }
+.game-brand { flex: 0 0 auto; }
+.game-case { flex: 0 0 auto; font-weight: 800; font-size: 1.05rem; padding: 4px 14px; border-radius: 12px; background: #F1ECE3; border: 1px solid var(--cozy-line); color: var(--cozy-ink); }
+.game-dots { display: flex; align-items: center; list-style: none; margin: 0; padding: 0; flex: 0 0 auto; }
+.game-dots li { display: flex; align-items: center; }
+.game-dots li + li::before { content: ''; width: 18px; height: 2px; background: #D8D2C8; }
+.game-dots li.done + li::before, .game-dots li.now::before { background: #3A9E94; }
+.game-dots .dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: .82rem; font-weight: 700; background: #fff; border: 2px solid #D8D2C8; color: #7A746B; }
+.game-dots li.done .dot { border-color: #3A9E94; color: #2C8C82; }
+.game-dots li.now .dot { background: #3A9E94; border-color: #3A9E94; color: #fff; box-shadow: 0 0 0 4px rgb(58 158 148 / 18%); }
+.game-stage-name { font-weight: 700; color: #2C8C82; white-space: nowrap; }
+.game-top .game-patient { flex: 1 1 auto; min-width: 0; font-size: .8rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-top .game-patient .tag { display: none; }
+.game-top .topnav { margin-left: auto; flex-wrap: nowrap; flex: 0 0 auto; }
+.game-record { position: absolute; right: 12px; top: 10px; z-index: 4; background: #FFFCF6; border: 1px solid var(--cozy-line); box-shadow: var(--cozy-shadow); display: inline-flex; align-items: center; gap: 6px; border-radius: 12px; }
+.game-record svg { color: #4A6B85; }
+.game-main { min-height: 0; }
+/* floating tool dock */
+.game-dock { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 5; max-width: calc(100% - 24px); background: rgb(255 252 246 / 96%); border: 1px solid var(--cozy-line); border-radius: 26px; padding: 8px 12px 10px; box-shadow: 0 8px 28px rgb(90 74 60 / 18%); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.game-dock .tool-info { justify-content: center; padding: 0 4px; font-size: .82rem; }
+.game-dock .tool-tray { justify-content: center; gap: 10px; padding: 2px; }
+.game-dock .tool { width: 112px; min-height: 92px; border-radius: 18px; background: #fff; }
+.game-dock .tool.selected { border-color: #3A9E94; background: #EAF6F3; box-shadow: 0 0 0 3px rgb(58 158 148 / 22%); transform: none; }
+/* the surgery keeps its dock below the stage so nothing covers the operative field */
+.game-dark .game-top { background: #0F2233; border-color: #1E3A52; }
+.game-dark .game-case { background: #12324A; border-color: #1E4A6B; color: #E0F2FE; }
+.game-dark .game-dots .dot { background: #12324A; border-color: #1E4A6B; color: #8FB3CC; }
+.game-dark .game-dots li.done .dot { border-color: #5FC4B8; color: #5FC4B8; }
+.game-dark .game-dots li.now .dot { background: #3A9E94; border-color: #3A9E94; color: #fff; }
+.game-dark .game-stage-name { color: #5FC4B8; }
+.game-dark .topnav button { color: #CFE3F2; }
+.game-dark .topnav button svg { color: #8FB3CC; }
+.game-dark .topnav button[aria-current='page'] { background: #12324A; color: #E0F2FE; }
+.game-dark .game-record { background: #12324A; border-color: #1E4A6B; color: #E0F2FE; }
+.game-dark .game-dock { position: static; transform: none; max-width: none; width: 100%; border-radius: 0; border: 0; border-top: 1px solid #1E3A52; background: #0F2233; box-shadow: none; align-items: stretch; }
+.game-dark .game-dock .tool-tray { justify-content: flex-start; }
+.game-dark .game-dock .tool { background: linear-gradient(180deg, #1E293B, #12324A); }
+.game-dark .game-dock .tool.selected { background: #12324A; border-color: #5FC4B8; }
+@media (max-width: 1100px) { .game-top .topnav .nav-label { display: none; } .game-top .game-patient { display: none; } }
+@media (max-width: 860px) { .game-stage-name { display: none; } }
+@media (max-width: 700px) {
+  .game { height: 100dvh; }
+  .game-top { flex-wrap: wrap; gap: 6px 8px; padding: 6px 8px; }
+  .game-brand span { display: none; }
+  .game-top .topnav { order: 2; margin-left: auto; }
+  .game-top .topnav button { padding: 4px 6px; }
+  .game-dots { order: 3; flex-basis: 100%; justify-content: center; }
+  .game-dots li + li::before { width: 10px; }
+  .game-dots .dot { width: 24px; height: 24px; font-size: .74rem; }
+  .game-top .game-patient { display: none; }
+  .game-top-actions { order: 4; flex-basis: 100%; }
+  .game-dock { position: static; transform: none; max-width: none; width: 100%; border-radius: 0; border: 0; border-top: 1px solid var(--cozy-line); box-shadow: none; padding: 6px 8px 8px; align-items: stretch; }
+  .game-dock .tool-tray { justify-content: flex-start; gap: 6px; }
+  .game-dock .tool { width: 78px; min-height: 80px; }
+  .game-record { top: auto; bottom: 8px; right: 8px; }
+}
+@media (max-width: 700px) { .game-hint { right: 88px; } .game-record { top: 8px; bottom: auto; } }
+@media (max-width: 700px) {
+  .game-top .topnav { gap: 0; }
+  .game-top .topnav button { padding: 4px 3px; }
+  .game-top .topnav button svg { width: 20px; height: 20px; }
+  .game-case { font-size: .9rem; padding: 2px 8px; }
+}
+/* the drawer opens below the floating 病歷 toggle so the toggle can close it again */
+.game-drawer { top: 52px; border-top-left-radius: 18px; }
+.game-top-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.game-top-actions .btn { white-space: nowrap; }
+.game-top:has(.game-top-actions) .topnav .nav-label, .game-top:has(.game-top-actions) .game-stage-name { display: none; }
+.game-top:has(.game-top-actions) .game-patient { min-width: 0; }
+.game-record.in-bar { position: static; flex: 0 0 auto; box-shadow: none; }
+.game-dark .game-brand span { color: #E0F2FE; }
+.game-dark .game-brand span b { color: #5FC4B8; }
+.game-dark .game-drawer { top: 0; }
+@media (max-width: 700px) { .game-top-actions { order: 4; flex: 1 1 100%; flex-wrap: wrap; } .game-top-actions .btn { flex: 1 1 auto; } }
+.game-dock { min-width: 0; } .game-dock > * { max-width: 100%; min-width: 0; } .game-dock .tool-tray { overflow-x: auto; }
+.tool { position: relative; }
+@media (max-width: 700px) { .game-dark .surgery-badges { padding-top: 70px; } }
+/* header rows of the surgery stage never shrink; the operative field takes what is left */
+.surgery-badges, .surgery-hud, .game-dock { flex: 0 0 auto; }
+@media (max-width: 600px) {
+  .topbar { padding: 6px 8px; gap: 4px; }
+  .topbar .brand span { display: none; }
+  .topbar .topnav { flex-wrap: nowrap; gap: 0; }
+  .topbar .topnav button { padding: 3px 4px; }
+  .topbar .topnav .nav-label { font-size: .66rem; white-space: nowrap; }
+}
