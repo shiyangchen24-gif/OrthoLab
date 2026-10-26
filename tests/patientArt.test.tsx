@@ -19,7 +19,7 @@ describe('raster art manifest', () => {
   it('bundled art: the Maltese poses and every clinic scene layer are delivered', () => {
     const art = resolvePatientArt('犬', '瑪爾濟斯')!;
     expect(Object.keys(art.urls).sort()).toEqual(['bandaged-LF', 'lift-LF', 'sit', 'withdraw-LF']);
-    expect(missingArt()).toEqual([]);
+    expect(missingArt().map((m) => m.id)).not.toContain('maltese');
     expect(sceneImage('background')).not.toBeNull();
     expect(sceneImage('vet')).not.toBeNull();
     expect(missingSceneArt()).toEqual([]);
@@ -73,7 +73,7 @@ describe('raster art manifest', () => {
     const py = readFileSync('scripts/check_patient_assets.py', 'utf8');
     for (const a of CHARACTER_ART) {
       const files = Object.values(a.poses).map((f) => `"${f}"`).join(', ');
-      expect(py).toContain(`"${a.dir}": {"canvas": (${a.canvas.width}, ${a.canvas.height}), "baseline_y": ${a.baseline.y}, "poses": [${files}]}`);
+      expect(py).toContain(`"${a.dir}": {"canvas": (${a.canvas.width}, ${a.canvas.height}), "baseline_y": ${a.baseline.y}, "poses": [${files}]${a.status === 'pending' ? ', "pending": True' : ''}}`);
     }
     for (const s of Object.values(SCENE_SLOTS)) expect(py).toContain(`"${s.file}": {"canvas": (${s.canvas.width}, ${s.canvas.height})`);
   });
@@ -181,5 +181,19 @@ describe('case portraits', () => {
     expect(html).toContain('data-testid="vector"');
     const img = renderToStaticMarkup(<CasePortrait caseId="C07" species="犬" breed="瑪爾濟斯" size={100} fallback={null} />);
     expect(img).toContain('alt="瑪爾濟斯（犬）病例頭像，教學插畫"');
+  });
+});
+
+describe('character manifest covers every case', () => {
+  it('each case breed has an entry whose poses include the pose that case needs', async () => {
+    const { cases } = await import('../src/data');
+    for (const c of cases) {
+      const spec = CHARACTER_ART.find((a) => a.species === c.species && a.breeds.includes(c.breed));
+      expect(spec, c.id).toBeTruthy();
+      const affected = limbsFromSide(c.side);
+      const plan = posePlan(raisedLimbs(c.pose, affected), affected);
+      expect(Object.keys(spec!.poses), c.id).toContain(plan.rest);
+      if (plan.withdraw) expect(Object.keys(spec!.poses), c.id).toContain(plan.withdraw);
+    }
   });
 });

@@ -38,7 +38,7 @@ C07 診間的所有圖層都已是手繪 PNG。獸醫與飼主以「半身」構
 | 知識庫 | 疾病卡 `kb/D01–D10`；右側詳細面板分「症狀／檢查／處置」。插圖下方註明「解剖細節待獸醫審閱」 |
 | 參考來源 | 頁首 `scene/library-room` |
 
-尚未接入：`surgery/drape.png` 與 `surgery/tools/*`（手術畫面的骨頭、骨板、螺釘位置用於判分，維持程式繪製；鋪巾與器械圖示待後續接入）。
+手術畫面：`surgery/drape` 為手術台背景、`tools/*` 為器械盤圖示；骨頭、骨板、螺釘的位置用於判分，維持程式繪製（只改成象牙色骨頭與不鏽鋼骨板配色）。設定頁與病例完成頁沿用獸醫、瑪爾濟斯與病例頭像。
 
 ## 1. 場景分層（C07 診間，`src/scenes/C07Clinic.tsx`）
 
@@ -82,6 +82,22 @@ python3 -I scripts/check_patient_assets.py
 檢查項目：檔案存在、畫布尺寸、RGBA 透明、邊框透明（非裁切矩形）、白邊比例、各姿態腳掌基線一致（±4 px）。單元測試會確認此腳本的清單與程式內的素材設定一致。
 
 ## 3. 缺件清單
+
+### 其他病例的病患姿態（C01–C06、C08）
+
+一般診間（`src/screens/Clinic.tsx`）會自動改用手繪病患：只要該品種「靜止姿態」的 PNG 存在就切換，缺件時沿用向量角色。上傳到 `art-inbox/patients/<資料夾>/`，由 OrthoLab 對齊畫布後放入 `src/assets/patients/<資料夾>/`。
+
+| 病例 | 品種 | 資料夾 | 必要 | 選用（術後照護） |
+|---|---|---|---|---|
+| C01 | 拉布拉多 | `labrador` | `sit`、`lift-LH`、`withdraw-LH` | `bandaged-LH` |
+| C02 | 玩具貴賓 | `toy-poodle` | `sit`、`lift-LH`、`withdraw-LH` | `bandaged-LH` |
+| C03 | 約克夏 | `yorkshire` | `sit`、`lift-RH`、`withdraw-RH` | `bandaged-RH` |
+| C04 | 博美 | `pomeranian` | `sit`、`lift-RH`、`withdraw-RH` | `bandaged-RH` |
+| C05 | 米克斯犬 | `mixed-dog` | `sit`、`withdraw-LH`（無症狀，不抬腳） | `bandaged-LH` |
+| C06 | 短毛家貓（灰虎斑） | `grey-tabby` | `sit`（雙側，不抬腳、不退縮） | — |
+| C08 | 米克斯短毛貓（橘） | `orange-cat` | `sit`、`lift-RH`、`withdraw-RH` | `bandaged-RH` |
+
+LH／RH：病患面向觀看者，**左後肢在畫面右側、右後肢在畫面左側**。三張圖必須同一角色、同一構圖，只改那隻腳。
 
 | 檔案 | 尺寸 | 說明 |
 |---|---|---|

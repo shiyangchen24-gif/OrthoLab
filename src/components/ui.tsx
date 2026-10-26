@@ -124,11 +124,15 @@ export function Stepper({ steps, current, done }: { steps: string[]; current: nu
   );
 }
 
-export function ScoreTile({ label, value, note }: { label: string; value: number | null; note?: string }) {
+/** A stage score; with `icon`, also a status chip (teaching score ≥ 80 = completed, else worth practising). */
+export function ScoreTile({ label, value, note, icon }: { label: string; value: number | null; note?: string; icon?: string }) {
+  const status = value === null ? null : value >= 80 ? 'done' : 'again';
   return (
-    <div className={`score-tile ${value === null ? 'na' : ''}`}>
+    <div className={`score-tile ${value === null ? 'na' : ''} ${icon ? 'with-icon' : ''}`}>
+      {icon && <span className="score-icon" aria-hidden>{icon}</span>}
       <span className="small muted">{label}</span>
       <b>{value === null ? '不適用' : value}</b>
+      {icon && status && <span className={`score-chip ${status}`}>{status === 'done' ? '✓ 已完成' : '↻ 可再練習'}</span>}
       {note && <span className="small muted">{note}</span>}
     </div>
   );

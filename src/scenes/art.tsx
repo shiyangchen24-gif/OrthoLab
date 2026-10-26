@@ -3,6 +3,7 @@
 // squinting eyes. Every interactive body part is a separate group so it can be
 // a tool target.
 
+import { illust } from '../components/illustrations';
 import type { ReactNode, SVGProps } from 'react';
 import type { Limb } from '../data/caseMeta';
 
@@ -247,7 +248,20 @@ const ti = (id: string) => (
   </linearGradient>
 );
 
+/** painted instrument icons (surgery tray); the clinic tools keep their drawn icons */
+const PAINTED_TOOL: Partial<Record<ToolIconId, string>> = {
+  grasp: 'tools/reduction',
+  clamp: 'tools/clamp',
+  plate: 'tools/plate',
+  drill: 'tools/drill',
+  gauge: 'tools/gauge',
+  screw: 'tools/screw',
+  carm: 'tools/carm',
+};
+
 export function ToolIcon({ id, size = 56 }: { id: ToolIconId; size?: number }) {
+  const painted = PAINTED_TOOL[id] ? illust(PAINTED_TOOL[id]!) : null;
+  if (painted) return <img className="tool-img" src={painted} width={size} height={size} alt="" aria-hidden draggable={false} />;
   const g = `ti-${id}`;
   let body: ReactNode;
   switch (id) {

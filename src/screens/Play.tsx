@@ -19,6 +19,7 @@ import { CardDeckGame } from '../components/CardDeckGame';
 import { CasePortrait } from '../components/CasePortrait';
 import { limbsFromSide } from '../components/PatientView';
 import { resolvePatientArt } from '../components/patientAssets';
+import { sceneImage } from '../scenes/sceneAssets';
 import { RefChips, ScoreTile, Stepper } from '../components/ui';
 import { useStore } from '../store';
 import { navigate } from '../router';
@@ -233,21 +234,36 @@ function Results() {
 
   return (
     <StageFrame>
-      <section className="card stack" aria-label="學習回饋">
-        <div className="row">
-          <h2 style={{ margin: 0 }}>學習回饋・病例 {c.id}</h2>
-          <span className={`tag ${s.kind === 'first' ? 'ok' : ''}`}>{s.kind === 'first' ? '首次作答紀錄' : '練習紀錄（不覆寫首次）'}</span>
+      <section className="card stack results" aria-label="學習回饋">
+        <div className="results-hero">
+          <div className="results-patient" aria-hidden>
+            <CasePortrait caseId={c.id} species={c.species} breed={c.breed} size={200} fallback={null} />
+          </div>
+          <div className="results-head">
+            <span className="results-sparkle" aria-hidden>✦ 🐾 ✦</span>
+            <h2>病例完成</h2>
+            <p>
+              {c.id}｜學習回饋・{CASE_META[c.id]?.name ?? c.breed}
+            </p>
+            <span className={`tag ${s.kind === 'first' ? 'ok' : ''}`}>{s.kind === 'first' ? '首次作答紀錄' : '練習紀錄（不覆寫首次）'}</span>
+          </div>
+          {sceneImage('vet') && (
+            <div className="results-vet" aria-hidden>
+              <img src={sceneImage('vet')!} alt="" />
+            </div>
+          )}
         </div>
         <p className="small muted">以下為本關教學評分，分開呈現各階段，不代表治療成功率或臨床能力認證。</p>
         <div className="scores">
-          <ScoreTile label="檢查與定位" value={scores.exam} />
+          <ScoreTile icon="🧤" label="檢查與定位" value={scores.exam} />
           <ScoreTile
+            icon="💡"
             label="推理"
             value={scores.reasoning}
             note={`處置 ${dec ?? '—'}${scored ? `（${ANSWER_LABEL[scored.category]}）` : ''}・判斷題 ${qz ?? '—'}`}
           />
-          <ScoreTile label="操作" value={scores.operation} note={scores.operation === null ? (proc === 'PROC-NONSURGICAL' ? '非手術病例：不扣分' : '此路線無操作模組') : undefined} />
-          <ScoreTile label="照護" value={scores.care} note={scores.care === null ? '此路線未進入照護關卡' : undefined} />
+          <ScoreTile icon="🔧" label="操作" value={scores.operation} note={scores.operation === null ? (proc === 'PROC-NONSURGICAL' ? '非手術病例：不扣分' : '此路線無操作模組') : undefined} />
+          <ScoreTile icon="💗" label="照護" value={scores.care} note={scores.care === null ? '此路線未進入照護關卡' : undefined} />
           <ScoreTile label="平均（只計有分數的階段）" value={total} />
         </div>
         {s.kind === 'practice' && first && (
@@ -260,6 +276,18 @@ function Results() {
           </div>
         )}
         {!deck && <div className="banner"><span aria-hidden>📅</span><span>模擬情境：已安排後續評估與轉介。此為教學模擬，不代表實際病程。</span></div>}
+        {top[0] && (
+          <div className="results-next">
+            <span aria-hidden className="results-next-icon">📋</span>
+            <div>
+              <span className="small muted">下次練習</span>
+              <b>{top[0].text}</b>
+            </div>
+            <a className="btn" href="#results-refs" onClick={(e) => (e.preventDefault(), document.getElementById('results-refs')?.scrollIntoView({ behavior: 'smooth' }))}>
+              📖 查看依據 ›
+            </a>
+          </div>
+        )}
         <section data-guide="improve" aria-label="最值得改善">
           <h3>最值得改善</h3>
           {top.length ? (
@@ -286,19 +314,20 @@ function Results() {
             </details>
           )}
         </section>
-        <h3>來源</h3>
+        <h3 id="results-refs">來源</h3>
         <RefChips ids={refs} />
-        <div className="row" style={{ marginTop: 8 }}>
-          <button className="btn primary" onClick={() => startCase(c.id)} data-testid="retry-case">
-            再練習一次
+        <div className="row results-actions" style={{ marginTop: 8 }}>
+          <button className="btn lg" onClick={() => startCase(c.id)} data-testid="retry-case">
+            ↻ 再練一次
           </button>
-          <button className="btn" onClick={() => startCase(nextCase.id)} data-testid="next-case">
-            下一位病患（{nextCase.id}）
+          <button className="btn primary lg" onClick={() => startCase(nextCase.id)} data-testid="next-case">
+            → 下一位病患（{nextCase.id}）
           </button>
           <button className="btn ghost" onClick={() => (abandonSession(), navigate('cases'))}>
             病例選擇
           </button>
         </div>
+        <p className="small muted results-note">ⓘ 教學評分不代表臨床結果</p>
       </section>
     </StageFrame>
   );

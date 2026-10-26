@@ -43,6 +43,7 @@ import type { ModuleResult } from '../engine/session';
 import { DragGhost, TaskHint, ToolInfo, ToolTray, Zone, useFeedback, useHold, useTrayDrag, type ToolDef } from './ToolKit';
 import { SceneShell, usePortrait } from './SceneShell';
 import { SceneDog, ExamTable } from './art';
+import { illust } from '../components/illustrations';
 
 const STEP_NAMES = ['復位', '骨鉗暫夾', '骨板定位', '鑽孔與鎖釘', '正交影像檢核'];
 const STEP_TOOL: Record<number, string[]> = { 1: ['grasp'], 2: ['clamp'], 3: ['plate'], 4: ['drill', 'gauge', 'screw'], 5: ['carm'] };
@@ -56,6 +57,7 @@ interface Extra {
 export function FractureSurgery({ caseId, onDone }: { caseId: string; onDone: (r: ModuleResult) => void }) {
   const m = getModel(caseId);
   const c = caseById(caseId)!;
+  const drape = illust('surgery/drape');
   const init = useCallback(() => initialT09(caseId), [caseId]);
   const ms = useModuleState<T09State>('PROC-ORIF-PLATE', init);
   const ex = useModuleState<Extra>('scene:T09', () => ({ intro: false, measured: [] }));
@@ -467,15 +469,16 @@ export function FractureSurgery({ caseId, onDone }: { caseId: string; onDone: (r
             data-testid="t09-stage"
           >
             <defs>
+              {/* ivory bone and brushed-steel plate to sit with the painted drape and tools; geometry is unchanged */}
               <linearGradient id="opBone" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#C7D7E8" />
-                <stop offset=".5" stopColor="#E2EDF8" />
-                <stop offset="1" stopColor="#B8CCE0" />
+                <stop offset="0" stopColor="#E9DCC6" />
+                <stop offset=".5" stopColor="#FBF5EA" />
+                <stop offset="1" stopColor="#DCCBAE" />
               </linearGradient>
               <linearGradient id="opPlate" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#7DD3FC" />
-                <stop offset=".5" stopColor="#38BDF8" />
-                <stop offset="1" stopColor="#0E7490" />
+                <stop offset="0" stopColor="#EEF1F4" />
+                <stop offset=".5" stopColor="#B9C2CB" />
+                <stop offset="1" stopColor="#7C8792" />
               </linearGradient>
               <linearGradient id="opScrew" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0" stopColor="#94A3B8" />
@@ -486,13 +489,18 @@ export function FractureSurgery({ caseId, onDone }: { caseId: string; onDone: (r
                 <path d="M5 0H0V5" fill="none" stroke="#38BDF8" strokeOpacity=".07" strokeWidth=".15" />
               </pattern>
             </defs>
-            <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill="url(#sgrid)" />
+            {drape ? (
+              // painted sterile drape (decoration only, never takes input)
+              <image href={drape} x={vb.x} y={vb.y} width={vb.w} height={vb.h} preserveAspectRatio="xMidYMid slice" pointerEvents="none" data-testid="surgery-drape" />
+            ) : (
+              <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill="url(#sgrid)" />
+            )}
             {/* sterile drape window (no blood, no soft tissue detail) */}
-            <rect x={-6} y={-half - 10} width={L + 12} height={(half + 10) * 2} rx="6" fill="#0F2A3F" stroke="#1E4A6B" strokeWidth=".4" />
-            <text x={-4} y={-half - 13} fontSize="2.6" fill="#8FB3CC">
+            <rect x={-6} y={-half - 10} width={L + 12} height={(half + 10) * 2} rx="6" fill={drape ? 'rgb(18 52 66 / 55%)' : '#0F2A3F'} stroke={drape ? '#E7F3F1' : '#1E4A6B'} strokeOpacity={drape ? 0.5 : 1} strokeWidth=".4" />
+            <text x={-4} y={-half - 13} fontSize="2.6" fill={drape ? '#FFFFFF' : '#8FB3CC'} className={drape ? 'stage-label' : undefined}>
               近端（肘側）
             </text>
-            <text x={L + 4} y={-half - 13} fontSize="2.6" fill="#8FB3CC" textAnchor="end">
+            <text x={L + 4} y={-half - 13} fontSize="2.6" fill={drape ? '#FFFFFF' : '#8FB3CC'} textAnchor="end" className={drape ? 'stage-label' : undefined}>
               遠端（腕側）
             </text>
             <g id="model-root">

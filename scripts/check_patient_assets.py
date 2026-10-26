@@ -27,6 +27,13 @@ ROOT = Path(__file__).resolve().parent.parent
 
 CHARACTERS = {
     "maltese": {"canvas": (1020, 1140), "baseline_y": 1002, "poses": ["sit.png", "lift-LF.png", "withdraw-LF.png", "bandaged-LF.png"]},
+    "labrador": {"canvas": (1020, 1140), "baseline_y": 1002, "poses": ["sit.png", "lift-LH.png", "withdraw-LH.png", "bandaged-LH.png"], "pending": True},
+    "toy-poodle": {"canvas": (1020, 1140), "baseline_y": 1002, "poses": ["sit.png", "lift-LH.png", "withdraw-LH.png", "bandaged-LH.png"], "pending": True},
+    "yorkshire": {"canvas": (1020, 1140), "baseline_y": 1002, "poses": ["sit.png", "lift-RH.png", "withdraw-RH.png", "bandaged-RH.png"], "pending": True},
+    "pomeranian": {"canvas": (1020, 1140), "baseline_y": 1002, "poses": ["sit.png", "lift-RH.png", "withdraw-RH.png", "bandaged-RH.png"], "pending": True},
+    "mixed-dog": {"canvas": (1020, 1140), "baseline_y": 1002, "poses": ["sit.png", "withdraw-LH.png", "bandaged-LH.png"], "pending": True},
+    "grey-tabby": {"canvas": (1020, 1140), "baseline_y": 1002, "poses": ["sit.png"], "pending": True},
+    "orange-cat": {"canvas": (1020, 1140), "baseline_y": 1002, "poses": ["sit.png", "lift-RH.png", "withdraw-RH.png", "bandaged-RH.png"], "pending": True},
 }
 SCENE = {
     "clinic-room.png": {"canvas": (1536, 864), "opaque": True},
@@ -67,8 +74,12 @@ def lowest_opaque_row(img: Image.Image) -> int | None:
 
 def main() -> int:
     errs: list[str] = []
+    pending: list[str] = []
     for cid, spec in CHARACTERS.items():
         base = ROOT / "src/assets/patients" / cid
+        if spec.get("pending") and not base.exists():
+            pending.append(cid)
+            continue
         rows: dict[str, int] = {}
         for f in spec["poses"]:
             p = base / f
@@ -99,6 +110,8 @@ def main() -> int:
             errs.append(f"{name}: canvas {img.size}, expected {spec['canvas']}")
         if not spec["opaque"]:
             errs += alpha_checks(img, name)
+    if pending:
+        print("… 尚未交付（略過）:", ", ".join(pending))
     for e in errs:
         print("✗", e)
     if not errs:

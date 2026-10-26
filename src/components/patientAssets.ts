@@ -83,7 +83,53 @@ export const CHARACTER_ART: CharacterArtSpec[] = [
     license: '由 ChatGPT 生成，使用者提供',
     status: 'delivered',
   },
+  // other cases: registered so their poses drop in; boxes are placeholders until measured on the delivered art
+  pending('labrador', '犬', ['拉布拉多'], 'LH', 'C01'),
+  pending('toy-poodle', '犬', ['玩具貴賓'], 'LH', 'C02'),
+  pending('yorkshire', '犬', ['約克夏'], 'RH', 'C03'),
+  pending('pomeranian', '犬', ['博美'], 'RH', 'C04'),
+  pending('mixed-dog', '犬', ['米克斯'], 'LH', 'C05', { lift: false }),
+  pending('grey-tabby', '貓', ['短毛家貓'], null, 'C06'),
+  pending('orange-cat', '貓', ['米克斯（短毛貓）'], 'RH', 'C08'),
 ];
+
+/**
+ * A character whose art has not been delivered yet. `limb` is the case's single affected limb
+ * (null = bilateral: seated only); `lift: false` = the case shows no lameness (asymptomatic).
+ */
+function pending(id: string, species: Species, breeds: string[], limb: Limb | null, caseId: string, opts: { lift?: boolean } = {}): CharacterArtSpec {
+  const sit: Record<Limb, HitBox> = {
+    RF: { x: 106, y: 200, width: 50, height: 134 },
+    LF: { x: 156, y: 200, width: 50, height: 134 },
+    RH: { x: 64, y: 258, width: 46, height: 74 },
+    LH: { x: 206, y: 262, width: 48, height: 70 },
+  };
+  const poses: Partial<Record<PoseKey, string>> = { sit: 'sit.png' };
+  const limbBoxes: Partial<Record<PoseKey, Record<Limb, HitBox>>> = { sit };
+  if (limb) {
+    const keys: PoseKey[] = [...(opts.lift === false ? [] : [`lift-${limb}` as PoseKey]), `withdraw-${limb}`, `bandaged-${limb}`];
+    for (const k of keys) {
+      poses[k] = `${k}.png`;
+      limbBoxes[k] = sit;
+    }
+  }
+  return {
+    id,
+    species,
+    breeds,
+    dir: id,
+    view: 'three-quarter-front',
+    screenRight: 'patient-left',
+    canvas: { ...ART_CANVAS },
+    baseline: { x: 510, y: 1002 },
+    poses,
+    limbBoxes,
+    bodyBox: { x: 84, y: 22, width: 170, height: 232 },
+    source: `待提供：${caseId} 角色姿態（以病例頭像為角色參考，ChatGPT 生成）`,
+    license: '待確認',
+    status: 'pending',
+  };
+}
 
 /** PNGs that actually exist in the bundle: "<dir>/<file>" → URL. */
 const BUNDLED: Record<string, string> = Object.fromEntries(
