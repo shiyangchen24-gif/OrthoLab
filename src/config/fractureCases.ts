@@ -4,6 +4,8 @@
 // measurements and must not be read as implant-sizing rules.
 
 import type { Segment, Vec } from '../engine/geometry';
+import { edgeAt, type BoneOutline } from './boneOutline';
+import { BONE_OUTLINES } from './boneOutlines.generated';
 
 export type ViewKey = 'primary' | 'secondary';
 
@@ -32,8 +34,10 @@ export interface FractureModel {
   sideLabel: 'L' | 'R';
   /** Bone length along the x axis. */
   length: number;
-  /** Width profile control points (x, width); linear interpolation. */
+  /** Width profile control points (x, width); used only when there is no traced outline. */
   profile: [number, number][];
+  /** Outline traced from the painted bone (top/bottom edges); replaces the profile when present. */
+  outline?: BoneOutline;
   /** Fracture line passes through (x, 0); angle from perpendicular in degrees. */
   fracture: { x: number; obliquityDeg: number; label: string };
   /** Articular / bone-end surfaces used for clearance checks. */
@@ -53,6 +57,19 @@ export interface FractureModel {
   notes: string[];
 }
 
+// Outlines traced from the painted bones. Surfaces, articular ends, clamp points and the
+// companion bone are read off the traced edges so everything sits on the drawn bone.
+const O7 = BONE_OUTLINES.C07;
+const O8 = BONE_OUTLINES.C08;
+const top = (o: BoneOutline, x: number) => +edgeAt(o.edges, x)[0].toFixed(2);
+const bot = (o: BoneOutline, x: number) => +edgeAt(o.edges, x)[1].toFixed(2);
+/** articular end segment spanning the bone at x (end-surface clearance checks) */
+const endFace = (o: BoneOutline, xa: number, xb: number, xs: number): Segment => ({ a: { x: xa, y: top(o, xs) }, b: { x: xb, y: bot(o, xs) } });
+const companionOf = (o: BoneOutline, x: number) => {
+  const [t, b] = edgeAt(o.companion!.edges, x);
+  return { offsetY: +((t + b) / 2).toFixed(2), width: +(b - t).toFixed(2) };
+};
+
 export const FRACTURE_MODELS: Record<string, FractureModel> = {
   C07: {
     caseId: 'C07',
@@ -66,11 +83,9 @@ export const FRACTURE_MODELS: Record<string, FractureModel> = {
       [77, 9],
       [80, 9.5],
     ],
+    outline: O7,
     fracture: { x: 56, obliquityDeg: 0, label: '遠端 1/3 橫斷骨折' },
-    articular: [
-      { a: { x: 0, y: -4 }, b: { x: 0, y: 4 } },
-      { a: { x: 78, y: -4.75 }, b: { x: 80, y: 4.75 } },
-    ],
+    articular: [endFace(O7, 0, 0, 2), endFace(O7, 78, 80, 78)],
     views: {
       primary: { label: 'Lat 側位', projection: '外內側投照（Lat）', plateFace: 'profile' },
       secondary: { label: 'AP 前後位', projection: '前後投照（AP／CrCd）', plateFace: 'face' },
@@ -86,14 +101,15 @@ export const FRACTURE_MODELS: Record<string, FractureModel> = {
       { id: 'c07-p12', label: '示意骨板 12 孔（本病例預設）', holes: 12, spacing: 5.5, endPad: 4, isPreset: true, presetHoles: [1, 3, 5, 9, 10, 11] },
       { id: 'c07-p14', label: '示意骨板 14 孔', holes: 14, spacing: 5.5, endPad: 4, isPreset: false, presetHoles: [] },
     ],
-    screwLengths: [4, 6, 7, 8, 10, 12],
+    // game model setting; 14 mm reaches the flared distal metaphysis of the traced radius
+    screwLengths: [4, 6, 7, 8, 10, 12, 14],
     clampPoints: [
-      { id: 'px-top', label: '近端・背側', at: { x: 50, y: -3 }, side: 'proximal', onPlatePath: true },
-      { id: 'px-bot', label: '近端・掌側', at: { x: 50, y: 3 }, side: 'proximal', onPlatePath: false },
-      { id: 'ds-top', label: '遠端・背側', at: { x: 62, y: -3 }, side: 'distal', onPlatePath: true },
-      { id: 'ds-bot', label: '遠端・掌側', at: { x: 62, y: 3.1 }, side: 'distal', onPlatePath: false },
+      { id: 'px-top', label: '近端・背側', at: { x: 50, y: top(O7, 50) }, side: 'proximal', onPlatePath: true },
+      { id: 'px-bot', label: '近端・掌側', at: { x: 50, y: bot(O7, 50) }, side: 'proximal', onPlatePath: false },
+      { id: 'ds-top', label: '遠端・背側', at: { x: 62, y: top(O7, 62) }, side: 'distal', onPlatePath: true },
+      { id: 'ds-bot', label: '遠端・掌側', at: { x: 62, y: bot(O7, 62) }, side: 'distal', onPlatePath: false },
     ],
-    companion: { offsetY: 9, width: 3.2, label: '尺骨（示意，不計分）' },
+    companion: { ...companionOf(O7, 40), label: '尺骨（示意，不計分）' },
     notes: ['生長板已閉合（依 C07-E3），本模型不另設生長板避讓區。', '橈骨與尺骨均骨折；本模組只固定橈骨。'],
   },
   C08: {
@@ -108,11 +124,9 @@ export const FRACTURE_MODELS: Record<string, FractureModel> = {
       [92, 14],
       [100, 15],
     ],
+    outline: O8,
     fracture: { x: 50, obliquityDeg: 30, label: '骨幹中段短斜骨折' },
-    articular: [
-      { a: { x: 0, y: -7 }, b: { x: 0, y: 7 } },
-      { a: { x: 97, y: -7.5 }, b: { x: 100, y: 7.5 } },
-    ],
+    articular: [endFace(O8, 0, 0, 2), endFace(O8, 97, 100, 97)],
     views: {
       primary: { label: 'AP 前後位', projection: '前後投照（CrCd），外側骨板呈側面', plateFace: 'profile' },
       secondary: { label: 'Lat 側位', projection: '外內側投照（Lat），骨板呈正面', plateFace: 'face' },
@@ -128,12 +142,13 @@ export const FRACTURE_MODELS: Record<string, FractureModel> = {
       { id: 'c08-p12', label: '示意骨板 12 孔（本病例預設）', holes: 12, spacing: 7, endPad: 4, isPreset: true, presetHoles: [0, 2, 4, 7, 9, 11] },
       { id: 'c08-p14', label: '示意骨板 14 孔', holes: 14, spacing: 7, endPad: 4, isPreset: false, presetHoles: [] },
     ],
-    screwLengths: [8, 10, 11, 12, 14, 16],
+    // game model setting; 18/20 mm reach the traced femur's proximal and distal metaphyses
+    screwLengths: [8, 10, 11, 12, 14, 16, 18, 20],
     clampPoints: [
-      { id: 'px-top', label: '近端・外側', at: { x: 40, y: -5 }, side: 'proximal', onPlatePath: true },
-      { id: 'px-bot', label: '近端・內側', at: { x: 42, y: 5 }, side: 'proximal', onPlatePath: false },
-      { id: 'ds-top', label: '遠端・外側', at: { x: 58, y: -5 }, side: 'distal', onPlatePath: true },
-      { id: 'ds-bot', label: '遠端・內側', at: { x: 60, y: 5 }, side: 'distal', onPlatePath: false },
+      { id: 'px-top', label: '近端・外側', at: { x: 40, y: top(O8, 40) }, side: 'proximal', onPlatePath: true },
+      { id: 'px-bot', label: '近端・內側', at: { x: 42, y: bot(O8, 42) }, side: 'proximal', onPlatePath: false },
+      { id: 'ds-top', label: '遠端・外側', at: { x: 58, y: top(O8, 58) }, side: 'distal', onPlatePath: true },
+      { id: 'ds-bot', label: '遠端・內側', at: { x: 60, y: bot(O8, 60) }, side: 'distal', onPlatePath: false },
     ],
     notes: ['無粉碎骨片（依 C08-E3）。', 'Plate-Rod 複合固定未模擬。'],
   },

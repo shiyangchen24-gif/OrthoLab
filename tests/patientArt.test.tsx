@@ -199,19 +199,27 @@ describe('character manifest covers every case', () => {
 });
 
 describe('painted surgery art', () => {
-  it('operative bones are the model outline filled with the painting; X-ray schematics never use paintings', async () => {
+  it('the model outline is traced from the painting, which is drawn whole and only split at the fracture', async () => {
     const { FractureBones, Implants } = await import('../src/components/art/XRay');
     const { FRACTURE_MODELS } = await import('../src/config/fractureCases');
     const { proximalPath, distalPath } = await import('../src/components/art/boneShapes');
-    const { initialT09 } = await import('../src/engine/t09');
+    const { initialT09, topAt, bottomAt, widthAt } = await import('../src/engine/t09');
     for (const id of ['C07', 'C08']) {
       const m = FRACTURE_MODELS[id];
+      expect(m.outline, id).toBeTruthy();
+      // engine surfaces are the traced edges
+      for (const [x, t, b] of m.outline!.edges) {
+        expect(topAt(m, x)).toBeCloseTo(t, 5);
+        expect(bottomAt(m, x)).toBeCloseTo(b, 5);
+        expect(widthAt(m, x)).toBeCloseTo(b - t, 5);
+      }
       const s = { dx: 0, views: { primary: { dy: 0, theta: 0 }, secondary: { dy: 0, theta: 0 } } };
       const op = renderToStaticMarkup(<svg><FractureBones m={m} s={s} view="primary" xray={false} /></svg>);
       expect(op).toContain('data-art="painted"');
-      // the clip paths are exactly the model's fragment outlines used by the scoring geometry
-      expect(op).toContain(`d="${proximalPath(m)}"`);
-      expect(op).toContain(`d="${distalPath(m)}"`);
+      // the painting is placed at its traced size and never clipped to a bone outline
+      expect(op).toContain(`width="${m.length}" height="${m.outline!.paint.height}"`);
+      expect(op).not.toContain(`d="${proximalPath(m)}"`);
+      expect(op).not.toContain(`d="${distalPath(m)}"`);
       const xr = renderToStaticMarkup(<svg><FractureBones m={m} s={s} view="primary" /></svg>);
       expect(xr).not.toContain('<image');
       const t = { ...initialT09(id), plate: { plateId: m.plates.find((p) => p.isPreset)!.id, x: 2, side: 'tension' as const } };

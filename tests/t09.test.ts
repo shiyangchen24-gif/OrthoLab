@@ -173,10 +173,11 @@ describe('screws', () => {
     const m = getModel('C08');
     let s = solve('C08');
     s = { ...s, step: 4 };
-    const e = evaluateHole(m, s, 0, 8);
+    // hole 2 sits on the shaft (about 11 mm thick on the traced femur)
+    const e = evaluateHole(m, s, 2, 8);
     expect(e.cortices).toBe(1);
     expect(e.effective).toBe(false);
-    const tooLong = evaluateHole(m, s, 0, 16);
+    const tooLong = evaluateHole(m, s, 2, 16);
     expect(tooLong.protrudes).toBe(true);
     expect(tooLong.effective).toBe(false);
   });
@@ -196,7 +197,8 @@ describe('screws', () => {
     let extra: T09State = { ...s, step: 4 };
     extra = selectHole(extra, 1);
     extra = drill(m, extra).state;
-    extra = lockScrew(extra, 11);
+    const g = extra.holes[1].gauge;
+    extra = lockScrew(extra, m.screwLengths.find((l) => l >= g && l <= g + 2)!);
     const more = scoreT09(m, extra);
     expect(fixationMetrics(m, extra).extraEffective).toBe(1);
     expect(more.score).toBe(base.score);

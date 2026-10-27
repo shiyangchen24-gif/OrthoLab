@@ -23,7 +23,9 @@ import {
   scoreT09,
   selectHole,
   trySnap,
-  widthAt,
+  topAt,
+  bottomAt,
+  boneExtent,
   type DrillBlock,
   type T09State,
 } from '../engine/t09';
@@ -182,8 +184,9 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
       const y = plateGhostY;
       setPlateGhostY(null);
       if (y !== null) {
-        const half = widthAt(m, m.fracture.x) / 2;
-        const side = Math.abs(y + half) < 9 ? 'tension' : Math.abs(y - half) < 9 ? 'compression' : null;
+        const surfTop = topAt(m, m.fracture.x);
+        const surfBottom = bottomAt(m, m.fracture.x);
+        const side = Math.abs(y - surfTop) < 9 ? 'tension' : Math.abs(y - surfBottom) < 9 ? 'compression' : null;
         apply((prev) => movePlate(m, prev, prev.plate.x, side), { record: false });
         if (side) sound.play('snap');
       }
@@ -223,7 +226,7 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
 
   // ---------- render helpers ----------
   const L = m.length;
-  const half = Math.max(...m.profile.map(([, w]) => w)) / 2;
+  const half = boneExtent(m);
   const vb = { x: -14, y: -(half + 18), w: L + 28, h: (half + 18) * 2 };
   const fs = fractureSegment(m);
   const preset = m.plates.find((p) => p.isPreset)!;
@@ -242,7 +245,7 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
   const angleNow = normalizeDeg(pose.theta);
 
   const tension = s.plate.side === 'tension';
-  const plateY = (x: number) => -widthAt(m, Math.min(Math.max(x, 0), L)) / 2 - thick;
+  const plateY = (x: number) => topAt(m, Math.min(Math.max(x, 0), L)) - thick;
 
   const stageTitle = s.step === 1 ? `${m.views[view].label}（${m.views[view].projection}）` : `${m.views.primary.label}（${m.views.primary.projection}）`;
 
@@ -460,8 +463,7 @@ export function T09Fracture({ caseId, onDone }: { caseId: string; onDone: (r: Mo
                           .filter(([, h]) => h.status === 'drilled')
                           .map(([k]) => {
                             const x = s.plate.x + holeOffset(plate, Number(k));
-                            const w = widthAt(m, x);
-                            return <line key={k} x1={x} y1={-w / 2} x2={x} y2={w / 2} stroke="#38BDF8" strokeWidth=".5" strokeDasharray=".6 .4" pointerEvents="none" />;
+                            return <line key={k} x1={x} y1={topAt(m, x)} x2={x} y2={bottomAt(m, x)} stroke="#38BDF8" strokeWidth=".5" strokeDasharray=".6 .4" pointerEvents="none" />;
                           })}
                       </g>
                     )}

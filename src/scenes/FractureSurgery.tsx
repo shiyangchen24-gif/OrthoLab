@@ -27,7 +27,9 @@ import {
   rotateFragment,
   scoreT09,
   trySnap,
-  widthAt,
+  topAt,
+  bottomAt,
+  boneExtent,
   type T09State,
 } from '../engine/t09';
 import { coachT09 } from '../engine/t09Coach';
@@ -282,8 +284,9 @@ export function FractureSurgery({ caseId, onDone }: { caseId: string; onDone: (r
       const y = plateGhostY;
       setPlateGhostY(null);
       if (y !== null) {
-        const half = widthAt(m, m.fracture.x) / 2;
-        const side = Math.abs(y + half) < 9 ? 'tension' : Math.abs(y - half) < 9 ? 'compression' : null;
+        const surfTop = topAt(m, m.fracture.x);
+        const surfBottom = bottomAt(m, m.fracture.x);
+        const side = Math.abs(y - surfTop) < 9 ? 'tension' : Math.abs(y - surfBottom) < 9 ? 'compression' : null;
         apply((prev) => movePlate(m, prev, prev.plate.x, side), { record: false });
         if (side) sound.play('snap');
       }
@@ -323,7 +326,7 @@ export function FractureSurgery({ caseId, onDone }: { caseId: string; onDone: (r
 
   // ---------- geometry for rendering ----------
   const L = m.length;
-  const half = Math.max(...m.profile.map(([, w]) => w)) / 2;
+  const half = boneExtent(m);
   const vb = { x: -12, y: -(half + 22), w: L + 24, h: (half + 22) * 2 + 10 };
   const fs = fractureSegment(m);
   const th = PLATE_THICKNESS[m.caseId] ?? 1.2;
@@ -334,7 +337,7 @@ export function FractureSurgery({ caseId, onDone }: { caseId: string; onDone: (r
     x: pivotNow.x + 15 * Math.cos(((angleNow - 90) * Math.PI) / 180),
     y: pivotNow.y + 15 * Math.sin(((angleNow - 90) * Math.PI) / 180),
   };
-  const plateY = (x: number) => -widthAt(m, Math.min(Math.max(x, 0), L)) / 2 - th;
+  const plateY = (x: number) => topAt(m, Math.min(Math.max(x, 0), L)) - th;
   const usableHoles = new Set(plate?.isPreset ? plate.presetHoles : []);
 
   const task = s.completed ? '手術完成，前往術後照護。' : coach.doNow;
@@ -603,7 +606,7 @@ export function FractureSurgery({ caseId, onDone }: { caseId: string; onDone: (r
                   .filter(([, h]) => h.status === 'drilled')
                   .map(([k]) => {
                     const x = s.plate.x + holeOffset(plate, Number(k));
-                    return <line key={`t${k}`} x1={x} y1={-widthAt(m, x) / 2} x2={x} y2={widthAt(m, x) / 2} stroke="#38BDF8" strokeWidth=".45" strokeDasharray=".6 .4" pointerEvents="none" />;
+                    return <line key={`t${k}`} x1={x} y1={topAt(m, x)} x2={x} y2={bottomAt(m, x)} stroke="#38BDF8" strokeWidth=".45" strokeDasharray=".6 .4" pointerEvents="none" />;
                   })}
               {/* holes */}
               {s.step === 4 &&

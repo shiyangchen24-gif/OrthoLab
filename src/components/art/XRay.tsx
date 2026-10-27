@@ -2,7 +2,7 @@ import { useId, useState, type ReactNode } from 'react';
 import { illust } from '../illustrations';
 import { FRACTURE_MODELS, plateLength, type FractureModel, type ViewKey } from '../../config/fractureCases';
 import { canalPath, distalPath, plateProfilePath, proximalPath } from './boneShapes';
-import { evaluateHole, holeX, plateById, widthAt, type T09State } from '../../engine/t09';
+import { evaluateHole, fractureSegment, holeX, plateById, topAt, type T09State } from '../../engine/t09';
 
 // High-contrast grayscale TEACHING schematics. Not clinical images, not DICOM.
 // 1 SVG unit = 1 model mm, so the 10 mm calibration bar is exact in model scale.
@@ -61,26 +61,24 @@ function ScaleBar({ x, y }: { x: number; y: number }) {
 // model's. X-ray schematics never use the paintings.
 
 /**
- * Measured on the processed paintings (px): image height, mid-shaft thickness and the
- * shaft's centre row. The painting is scaled so its shaft matches the model's mid-shaft
- * width; anything outside the model outline is clipped away.
+ * Two half-planes split along the (extended) fracture line: the painted bone is shown
+ * whole, only cut where it is broken, never trimmed to another outline.
  */
-const PAINT_FIT: Record<string, { h: number; shaft: number; cy: number }> = {
-  'C07-bone': { h: 224, shaft: 57, cy: 121 },
-  'C07-ulna': { h: 231, shaft: 38, cy: 171 },
-  'C08-bone': { h: 332, shaft: 84, cy: 180 },
-};
-
-/** y and height (model units) that place a painting's shaft centred on y = centre with the given width. */
-function fitPaint(key: string, width: number, centre = 0) {
-  const f = PAINT_FIT[key] ?? { h: 1, shaft: 1, cy: 0.5 };
-  const k = width / f.shaft;
-  return { y: centre - f.cy * k, height: f.h * k };
+function fractureHalves(m: FractureModel): { proximal: string; distal: string } {
+  const fs = fractureSegment(m);
+  const R = 60; // well beyond any bone edge
+  const dxdy = (fs.b.x - fs.a.x) / (fs.b.y - fs.a.y || 1);
+  const xTop = fs.a.x + dxdy * (-R - fs.a.y);
+  const xBot = fs.a.x + dxdy * (R - fs.a.y);
+  return {
+    proximal: `M${-R} ${-R} L${xTop} ${-R} L${xBot} ${R} L${-R} ${R} Z`,
+    distal: `M${xTop} ${-R} L${m.length + R} ${-R} L${m.length + R} ${R} L${xBot} ${R} Z`,
+  };
 }
 
 export function FractureBones({ m, s, view, xray = true }: { m: FractureModel; s: Pick<T09State, 'dx' | 'views'>; view: ViewKey; xray?: boolean }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
-  const painted = xray ? null : illust(`surgery/${m.caseId}-bone`);
+  const painted = xray || !m.outline ? null : illust(`surgery/${m.caseId}-bone`);
   if (painted) return <PaintedBones m={m} s={s} view={view} art={painted} uid={uid} />;
   const pose = s.views[view];
   const fill = xray ? BONE : 'url(#opBone)';
@@ -110,52 +108,32 @@ export function FractureBones({ m, s, view, xray = true }: { m: FractureModel; s
 function PaintedBones({ m, s, view, art, uid }: { m: FractureModel; s: Pick<T09State, 'dx' | 'views'>; view: ViewKey; art: string; uid: string }) {
   const pose = s.views[view];
   const t = `translate(${s.dx} ${pose.dy}) rotate(${pose.theta} ${m.fracture.x} 0)`;
-  const fit = fitPaint(`${m.caseId}-bone`, widthAt(m, m.length / 2));
-  const companionArt = m.companion ? illust(`surgery/${m.caseId}-ulna`) : null;
-  // the painting spans the whole bone; each fragment shows it through its own model outline
-  const texture = (clip: string) => (
-    <>
-      <path d={clip === 'p' ? proximalPath(m) : distalPath(m)} fill="#F4EBDD" />
-      <image href={art} x={0} y={fit.y} width={m.length} height={fit.height} preserveAspectRatio="none" clipPath={`url(#${uid}-${clip})`} />
-      <path d={clip === 'p' ? proximalPath(m) : distalPath(m)} fill="none" stroke="#B9A88E" strokeWidth=".25" strokeOpacity=".8" />
-    </>
+  const halves = fractureHalves(m);
+  const o = m.outline!;
+  const companionArt = o.companion ? illust(`surgery/${m.caseId}-ulna`) : null;
+  // the model outline is traced from this same painting, so the image is drawn at its own size
+  const paint = (href: string, p: { y: number; height: number }, half: 'p' | 'd') => (
+    <image href={href} x={0} y={p.y} width={m.length} height={p.height} preserveAspectRatio="none" clipPath={`url(#${uid}-${half})`} />
   );
-  const c = m.companion;
   return (
     <g data-art="painted">
       <defs>
         <clipPath id={`${uid}-p`}>
-          <path d={proximalPath(m)} />
+          <path d={halves.proximal} />
         </clipPath>
         <clipPath id={`${uid}-d`}>
-          <path d={distalPath(m)} />
+          <path d={halves.distal} />
         </clipPath>
-        {c && (
-          <>
-            <clipPath id={`${uid}-cp`}>
-              <rect x={2} y={c.offsetY - c.width / 2} width={m.fracture.x + 1} height={c.width} rx="1.5" />
-            </clipPath>
-            <clipPath id={`${uid}-cd`}>
-              <rect x={m.fracture.x + 2} y={c.offsetY - c.width / 2} width={m.length - m.fracture.x - 2} height={c.width} rx="1.5" />
-            </clipPath>
-          </>
-        )}
       </defs>
-      {c && view === 'primary' && (
-        <g opacity=".8">
-          {(['cp', 'cd'] as const).map((k) => {
-            const body = companionArt ? (
-              <image href={companionArt} x={2} {...fitPaint(`${m.caseId}-ulna`, c.width, c.offsetY)} width={m.length - 2} preserveAspectRatio="none" clipPath={`url(#${uid}-${k})`} />
-            ) : (
-              <rect x={2} y={c.offsetY - c.width / 2} width={m.length - 2} height={c.width} fill="#EFE3CF" clipPath={`url(#${uid}-${k})`} />
-            );
-            return k === 'cp' ? <g key={k}>{body}</g> : <g key={k} transform={t}>{body}</g>;
-          })}
+      {companionArt && o.companion && view === 'primary' && (
+        <g opacity=".85">
+          {paint(companionArt, o.companion.paint, 'p')}
+          <g transform={t}>{paint(companionArt, o.companion.paint, 'd')}</g>
         </g>
       )}
-      {texture('p')}
+      {paint(art, o.paint, 'p')}
       <g transform={t} data-testid={`fragment-${view}`}>
-        {texture('d')}
+        {paint(art, o.paint, 'd')}
       </g>
     </g>
   );
@@ -196,11 +174,11 @@ export function Implants({ m, s, view, xray = true }: { m: FractureModel; s: T09
       <image key={key} href={art.head} x={lx - 1.25} y={-1.25} width={2.5} height={2.5} />
     ) : art?.side && !face ? (
       // the shaft is stretched to the chosen length; the head sits on the plate exactly like the drawn screw
-      <image key={key} href={art.side} x={lx - 0.7} y={-widthAt(m, lx) / 2 - th * 0.6} width={1.4} height={length + th * 0.6} preserveAspectRatio="none" />
+      <image key={key} href={art.side} x={lx - 0.7} y={topAt(m, lx) - th * 0.6} width={1.4} height={length + th * 0.6} preserveAspectRatio="none" />
     ) : face ? (
       <circle key={key} cx={lx} cy={0} r={1.1} fill={metal} stroke={xray ? 'none' : '#FACC15'} strokeWidth=".3" />
     ) : (
-      <rect key={key} x={lx - 0.5} y={-widthAt(m, lx) / 2 - th * 0.6} width={1} height={length + th * 0.6} rx=".3" fill={metal} />
+      <rect key={key} x={lx - 0.5} y={topAt(m, lx) - th * 0.6} width={1} height={length + th * 0.6} rx=".3" fill={metal} />
     );
   return (
     <g opacity={xray ? 0.95 : 1}>

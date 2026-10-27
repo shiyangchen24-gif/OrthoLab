@@ -2,6 +2,7 @@
 // Everything is computed from the current model state in model coordinates,
 // so zoom, view toggles or repeated clicks can never add score.
 
+import { edgeAt } from '../config/boneOutline';
 import {
   FRACTURE_MODELS,
   holeOffset,
@@ -97,7 +98,31 @@ export function initialT09(caseId: string): T09State {
 }
 
 // ---------- bone geometry ----------
+// With a traced outline (painted bone) the top and bottom edges are independent;
+// otherwise the bone is symmetric about y = 0 with the width profile.
+
+/** y of the top (plate / tension-side) surface at x. */
+export function topAt(m: FractureModel, x: number): number {
+  return m.outline ? edgeAt(m.outline.edges, x)[0] : -profileWidth(m, x) / 2;
+}
+
+/** y of the bottom surface at x. */
+export function bottomAt(m: FractureModel, x: number): number {
+  return m.outline ? edgeAt(m.outline.edges, x)[1] : profileWidth(m, x) / 2;
+}
+
+/** Bone thickness at x (what a bicortical screw must cross). */
 export function widthAt(m: FractureModel, x: number): number {
+  return bottomAt(m, x) - topAt(m, x);
+}
+
+/** Largest distance of any bone edge from the axis (for framing the view). */
+export function boneExtent(m: FractureModel): number {
+  if (!m.outline) return Math.max(...m.profile.map(([, w]) => w)) / 2;
+  return Math.max(...m.outline.edges.map(([, t, b]) => Math.max(-t, b)));
+}
+
+function profileWidth(m: FractureModel, x: number): number {
   const p = m.profile;
   if (x <= p[0][0]) return p[0][1];
   for (let i = 1; i < p.length; i++) {
@@ -112,9 +137,11 @@ export function widthAt(m: FractureModel, x: number): number {
 
 /** Fracture line clipped to the bone edges (local/target frame). */
 export function fractureSegment(m: FractureModel): Segment {
-  const w = widthAt(m, m.fracture.x);
-  const t = Math.tan((m.fracture.obliquityDeg * Math.PI) / 180) * (w / 2);
-  return { a: { x: m.fracture.x - t, y: -w / 2 }, b: { x: m.fracture.x + t, y: w / 2 } };
+  const top = topAt(m, m.fracture.x);
+  const bottom = bottomAt(m, m.fracture.x);
+  const tan = Math.tan((m.fracture.obliquityDeg * Math.PI) / 180);
+  // the line passes through the pivot (fracture.x, 0) at the given obliquity, edge to edge
+  return { a: { x: m.fracture.x + tan * top, y: top }, b: { x: m.fracture.x + tan * bottom, y: bottom } };
 }
 
 export const pivot = (m: FractureModel): Vec => ({ x: m.fracture.x, y: 0 });
@@ -299,7 +326,7 @@ export function evaluateHole(m: FractureModel, s: T09State, i: number, length: n
   const plate = plateById(m, s.plate.plateId);
   const x = holeX(m, s, i) ?? NaN;
   const fs = fractureSegment(m);
-  const top: Vec = { x, y: -widthAt(m, x) / 2 };
+  const top: Vec = { x, y: topAt(m, x) };
   // decide which fragment the hole sits over, in the local (target) frame
   let fragment: ScrewEval['fragment'] = 'none';
   let local = top;
@@ -314,7 +341,7 @@ export function evaluateHole(m: FractureModel, s: T09State, i: number, length: n
   const lx = local.x;
   const overBone = fragment !== 'none' && lx >= 0 && lx <= m.length;
   const thickness = overBone ? widthAt(m, lx) : 0;
-  const screw: Segment = { a: { x: lx, y: -thickness / 2 }, b: { x: lx, y: thickness / 2 } };
+  const screw: Segment = overBone ? { a: { x: lx, y: topAt(m, lx) }, b: { x: lx, y: bottomAt(m, lx) } } : { a: { x: lx, y: 0 }, b: { x: lx, y: 0 } };
   const fractureMargin = overBone ? segmentDistance(screw, fs) : 0;
   const articular = overBone ? Math.min(...m.articular.map((a) => segmentDistance(screw, a))) : 0;
   const marginLevel = rate(TOLERANCES.fractureMargin, fractureMargin);
