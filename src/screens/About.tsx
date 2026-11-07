@@ -8,7 +8,7 @@ import { navigate } from '../router';
 const STEPS = [
   { n: 1, title: '接診', text: '聽飼主主訴，標記患肢。', art: 'guide/step1' },
   { n: 2, title: '檢查', text: '步態觀察、骨科觸診與補充資訊。', art: 'guide/step2' },
-  { n: 3, title: '推理', text: '判讀 X 光，整理線索並選擇處置。', art: 'guide/step3' },
+  { n: 3, title: '推理', text: '判讀 X 光，整理線索並選擇處置；TPLO 病例先完成數位術前規劃。', art: 'guide/step3' },
   { n: 4, title: '手術', text: '依步驟完成復位與固定（教學幾何）。', art: 'guide/step4' },
   { n: 5, title: '照護', text: '建立術後照護與衛教計畫。', art: 'guide/step5' },
   { n: 6, title: '回饋', text: '檢視各階段表現與下次練習重點。', art: 'guide/step6' },

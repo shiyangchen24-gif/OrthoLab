@@ -8,11 +8,13 @@ import { guideFor } from '../engine/guide';
 import { GuideBar } from '../components/GuideBar';
 import { CASE_META } from '../data/caseMeta';
 import { ANSWER_LABEL, type LearningRecord } from '../types';
-import { Clinic, FLOW, flowIndex } from './Clinic';
+import { Clinic, flowFor, flowIndex } from './Clinic';
 import { T09Fracture } from '../modules/T09Fracture';
 import { C07Clinic } from '../scenes/C07Clinic';
 import { FractureSurgery } from '../scenes/FractureSurgery';
 import { T01Tplo } from '../modules/T01Tplo';
+import { TploWorkflow } from '../modules/TploWorkflow';
+import { hasTploPlanning } from '../engine/tploPlan';
 import { T02Fhne } from '../modules/T02Fhne';
 import { T03Mpl } from '../modules/T03Mpl';
 import { CardDeckGame } from '../components/CardDeckGame';
@@ -67,7 +69,7 @@ function StageFrame({ children }: { children: React.ReactNode }) {
   const c = caseById(s.caseId)!;
   return (
     <div className="stack">
-      <Stepper steps={FLOW} current={flowIndex(s)} done={(i) => i < flowIndex(s)} />
+      <Stepper steps={flowFor(s)} current={flowIndex(s)} done={(i) => i < flowIndex(s)} />
       <GuideBar step={guideFor(s)} />
       <div className="row small muted">
         <span>
@@ -92,7 +94,8 @@ function ProcedureStage() {
       body = <T09Fracture caseId={s.caseId} onDone={done} />;
       break;
     case 'PROC-TPLO':
-      body = <T01Tplo caseId={s.caseId} onDone={done} />;
+      // CrCL cases: ② digital pre-operative planning → ③ surgery
+      body = hasTploPlanning(s.caseId) ? <TploWorkflow caseId={s.caseId} onDone={done} /> : <T01Tplo caseId={s.caseId} onDone={done} />;
       break;
     case 'PROC-FHNE':
       body = <T02Fhne caseId={s.caseId} onDone={done} />;

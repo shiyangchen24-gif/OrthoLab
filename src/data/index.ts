@@ -184,7 +184,7 @@ export const options: TreatmentOption[] = src.treatments.map((r) => {
 
 // ---------- procedure modules ----------
 const MODULE_STATUS: Record<ProcedureId, { status: ModuleStatus; note: string }> = {
-  'PROC-TPLO': { status: 'playable', note: '概念操作：規劃核對、截骨旋轉示意、範本固定與影像檢核；截骨旋轉不做數值判分。' },
+  'PROC-TPLO': { status: 'playable', note: '數位術前規劃（校正、長軸、高原線、TPA、鋸片、D1–D3、旋轉、骨板範本、規劃表）＋依規劃執行手術與術後 X 光檢核；數值只顯示、不做數值判分。' },
   'PROC-FHNE': { status: 'playable', note: '獨立流程：辨識、切除示意、殘留撞擊檢查與復健路線。' },
   'PROC-MPL-COMBO': { status: 'playable', note: '辨識排列 → 依所見選組合 → 操作示意 → 屈伸軌跡檢核。' },
   'PROC-NONSURGICAL': { status: 'playable', note: 'C05 觀察追蹤與 C06 慢性疼痛管理使用不同照護卡。' },

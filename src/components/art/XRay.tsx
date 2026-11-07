@@ -286,13 +286,33 @@ function HipVD({ bilateral }: { bilateral: boolean }) {
   );
 }
 
-function StifleCrCd({ caseId }: { caseId: 'C04' | 'C05' }) {
+function StifleSeries({ caseId }: { caseId: 'C01' | 'C02' }) {
+  return (
+    <div className="grid cols-2" style={{ gap: 8 }} data-testid={`xray-series-${caseId}`}>
+      <div className="xray">
+        <StifleLateral caseId={caseId} />
+      </div>
+      <div className="xray">
+        <StifleCrCd caseId={caseId} />
+      </div>
+    </div>
+  );
+}
+
+const CRCD_NOTE: Record<string, string> = {
+  C01: '關節積液、輕度 OA；無骨折（依 C01-E3）',
+  C02: '關節積液；髕骨位置另記錄（依 C02-E2／E3）',
+  C04: '伸膝機制排列異常；無重大角度變形',
+  C05: '未見明顯 OA 或骨變形',
+};
+
+function StifleCrCd({ caseId }: { caseId: 'C01' | 'C02' | 'C04' | 'C05' }) {
   const right = caseId === 'C04';
   // in a CrCd view the limb's medial side faces the midline; label it explicitly
   const medialOnRight = right;
   const shift = caseId === 'C04' ? (medialOnRight ? 10 : -10) : 0;
   return (
-    <Frame w={120} h={90} projection={`CrCd 前後位・${right ? '右' : '左'}膝`} marker={right ? 'R' : 'L'} note={caseId === 'C04' ? '伸膝機制排列異常；無重大角度變形' : '未見明顯 OA 或骨變形'}>
+    <Frame w={120} h={90} projection={`CrCd 前後位・${right ? '右' : '左'}膝`} marker={right ? 'R' : 'L'} note={CRCD_NOTE[caseId]}>
       <ellipse cx="60" cy="45" rx="40" ry="36" fill="url(#xrSoft)" />
       <path d="M50 4 L70 4 L72 30 Q78 36 76 42 L44 42 Q42 36 48 30 Z" fill={BONE} />
       {/* trochlear groove hint */}
@@ -309,8 +329,9 @@ function StifleCrCd({ caseId }: { caseId: 'C04' | 'C05' }) {
 }
 
 const RENDERERS: Record<string, () => ReactNode> = {
-  'C01-IMG': () => <StifleLateral caseId="C01" />,
-  'C02-IMG': () => <StifleLateral caseId="C02" />,
+  // standard stifle series for suspected CrCL disease: ML + CrCd
+  'C01-IMG': () => <StifleSeries caseId="C01" />,
+  'C02-IMG': () => <StifleSeries caseId="C02" />,
   'C03-IMG': () => <HipVD bilateral={false} />,
   'C04-IMG': () => <StifleCrCd caseId="C04" />,
   'C05-IMG': () => <StifleCrCd caseId="C05" />,
@@ -331,6 +352,13 @@ export function XRayPanel({ imageId }: { imageId: string | null }) {
     );
   }
   if (imageId === 'C07-IMG' || imageId === 'C08-IMG') return <FractureViewer caseId={imageId.slice(0, 3)} />;
+  if (imageId === 'C01-IMG' || imageId === 'C02-IMG')
+    return (
+      <div>
+        {RENDERERS[imageId]()}
+        <p className="small muted" style={{ margin: '4px 0 0' }}>標準膝關節 X 光：ML（內外側）＋ CrCd（頭尾側）教學示意（非臨床影像）。</p>
+      </div>
+    );
   return (
     <div>
       <div className="xray">{RENDERERS[imageId]()}</div>

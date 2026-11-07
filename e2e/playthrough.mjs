@@ -76,11 +76,140 @@ async function answerQuiz(page) {
   for (const id of ['location', 'evidence', 'missing']) await page.locator(`[data-testid^="quiz-${id}-"][data-correct="y"]`).first().click();
 }
 
-/** localise, run every exam, answer the reasoning questions */
+/** ① diagnosis card (CrCL cases): answer every item correctly */
+async function answerDx(page) {
+  if (!(await page.locator(tid('dx-card')).count())) return;
+  for (const id of ['effusion', 'oa', 'tibia', 'comorbid', 'diagnosis', 'indication']) await page.locator(`[data-testid^="dx-${id}-"][data-correct="y"]`).first().click();
+}
+
+/** localise, run every exam, answer the diagnosis card and the reasoning questions */
 async function revealAll(page, caseId) {
   await localize(page, caseId);
   for (let i = 1; i <= 4; i++) await page.click(tid(`exam-${caseId}-E${i}`));
+  await answerDx(page);
   await answerQuiz(page);
+}
+
+// ---------- ② digital pre-op planning → ③ TPLO surgery ----------
+async function svgClick(page, id, pt) {
+  await page.locator(tid(id)).scrollIntoViewIfNeeded();
+  const s = await page.evaluate(([id, x, y]) => {
+    const svg = document.querySelector(`[data-testid="${id}"]`);
+    const q = svg.createSVGPoint();
+    q.x = x;
+    q.y = y;
+    const r = q.matrixTransform(svg.getScreenCTM());
+    return { x: r.x, y: r.y };
+  }, [id, pt.x, pt.y]);
+  await page.mouse.click(s.x, s.y);
+}
+const svgTargets = async (page, id) => JSON.parse(await page.getAttribute(tid(id), 'data-targets'));
+const planMsg = async (page) => (await page.locator(tid('tplo-msg')).textContent()) ?? '';
+
+async function tploPlanAndOperate(page, { blade, plate, rotation }) {
+  await page.locator(tid('tplo-planning')).waitFor();
+  assert((await page.locator('.stepper li.current').first().textContent()).includes('術前規劃'), 'stage indicator shows 術前規劃 before the surgery');
+  // 1 import: wrong side rejected with the reason, first attempt recorded
+  await page.click(tid('study-ml-right'));
+  assert((await planMsg(page)).includes('患側不符'), 'importing the wrong side is rejected');
+  await page.click(tid('study-crcd-left'));
+  assert((await planMsg(page)).includes('ML'), 'TPA must be measured on the ML view');
+  await page.click(tid('study-ml-left'));
+  await page.click(tid('plan-next'));
+  // 2 calibration
+  const t = await svgTargets(page, 'plan-targets');
+  await page.click(tid('plan-next'));
+  assert((await planMsg(page)).includes('校正點'), 'cannot skip calibration');
+  await svgClick(page, 'plan-image', t.calA);
+  await svgClick(page, 'plan-image', t.calB);
+  await page.fill(tid('cal-input'), '20');
+  await page.click(tid('cal-apply'));
+  assert((await planMsg(page)).includes('25 mm'), 'calibration needs the known sphere diameter');
+  await page.fill(tid('cal-input'), '25');
+  await page.click(tid('cal-apply'));
+  await page.click(tid('plan-next'));
+  assert((await page.locator(tid('plan-readouts')).textContent()).includes('px/mm'), 'image scale shown after calibration');
+  // 3–4 long axis and plateau line → 5 TPA
+  await svgClick(page, 'plan-image', t.axisP);
+  await svgClick(page, 'plan-image', t.axisD);
+  await page.click(tid('plan-next'));
+  await svgClick(page, 'plan-image', t.platCr);
+  await svgClick(page, 'plan-image', t.platCa);
+  await page.click(tid('plan-next'));
+  const tpaRow = await page.locator(tid('plan-readouts')).textContent();
+  await page.click(tid('confirm-target'));
+  await page.click(tid('plan-next'));
+  // 6 blade + centre: a wrong blade shows why it fails and cannot be accepted
+  await page.click(tid('blade-30'));
+  await svgClick(page, 'plan-image', t.center);
+  await page.click(tid('plan-next'));
+  assert((await planMsg(page)).includes('脛骨粗隆'), 'too large a blade: crosses the tuberosity / too little bone stock');
+  await page.click(tid(`blade-${blade}`));
+  await page.click(tid('plan-next'));
+  // 7 exits, 8 D1–D3
+  await page.click(tid('confirm-exits'));
+  await page.click(tid('plan-next'));
+  for (const k of ['d1', 'd2', 'd3']) await page.click(tid(`measure-${k}`));
+  await page.click(tid('plan-next'));
+  // 9 rotation to the target TPA
+  await page.fill(tid('plan-rot-range'), String(rotation - 3));
+  await page.click(tid('plan-next'));
+  assert((await planMsg(page)).includes('目標'), 'rotation must reach the target TPA');
+  await page.fill(tid('plan-rot-range'), String(rotation));
+  await page.click(tid('plan-next'));
+  // 10 plate template + screws
+  await page.click(tid('plate-tplo-2.0'));
+  const small = await page.locator(tid('plan-next')).click().then(() => planMsg(page));
+  await page.click(tid(`plate-${plate}`));
+  const t2 = await svgTargets(page, 'plan-targets');
+  await svgClick(page, 'plan-image', t2.plateHint);
+  for (let i = 0; i < 6; i++) await page.click(tid(`plan-hole-${i}`));
+  await page.click(tid('plan-next'));
+  // 11 planning sheet
+  await page.click(tid('plan-next'));
+  const sheet = await page.locator(tid('planning-sheet')).textContent();
+  assert(sheet.includes(`半徑 ${blade} mm`) && sheet.includes(`${rotation}.0°`) && sheet.includes('D1') && sheet.includes('弦長'), 'planning sheet lists blade, rotation, D1–D3 and chord');
+  await page.screenshot({ path: `${OUT}/tplo-planning-sheet.png`, fullPage: true });
+  await page.click(tid('sheet-to-surgery'));
+  // ③ surgery
+  await page.locator(tid('tplo-surgery')).waitFor();
+  assert((await page.locator('.stepper li.current').first().textContent()).includes('手術'), 'stage indicator moves to the surgery');
+  await page.click(tid('tray-blade-30'));
+  await page.click(tid(`tray-plate-${plate}`));
+  await page.click(tid('tray-check'));
+  assert((await planMsg(page)).includes('不一致'), 'tray check compares with the planning sheet');
+  await page.click(tid(`tray-blade-${blade}`));
+  await page.click(tid('tray-check'));
+  await page.click(tid('surg-next'));
+  await page.click(tid('approach-medial'));
+  await page.click(tid('surg-next'));
+  await page.click(tid('surg-next'));
+  assert((await planMsg(page)).includes('D1–D3'), 'the osteotomy must be positioned per D1–D3');
+  const st = await svgTargets(page, 'surg-targets');
+  await svgClick(page, 'surg-image', st.planCenter);
+  await page.click(tid('surg-next'));
+  await page.click(tid('do-cut'));
+  await page.click(tid('surg-next'));
+  await page.fill(tid('surg-rot-range'), String(rotation));
+  await page.screenshot({ path: `${OUT}/tplo-surgery-rotation.png`, fullPage: true });
+  await page.click(tid('surg-next'));
+  await page.click(tid('temp-pin'));
+  await page.click(tid('surg-next'));
+  await page.click(tid('seat-plate'));
+  for (let i = 0; i < 6; i++) await page.click(tid(`surg-hole-${i}`));
+  await page.click(tid('surg-next'));
+  await page.click(tid('stability-drawer'));
+  assert((await planMsg(page)).includes('抽屜'), 'TPLO does not remove passive drawer: explained');
+  await page.click(tid('stability-thrust'));
+  await page.click(tid('alignment'));
+  await page.click(tid('surg-next'));
+  await page.click(tid('closure'));
+  await page.click(tid('surg-next'));
+  assert((await page.locator(tid('post-tpa-a')).textContent()).includes('5.0°'), 'post-op TPA comes from the performed rotation');
+  for (const q of ['tpa', 'implant', 'osteotomy']) await page.click(tid(`post-${q}-a`));
+  await page.screenshot({ path: `${OUT}/tplo-postop.png`, fullPage: true });
+  await page.click(tid('surg-next'));
+  return { tpaRow, small };
 }
 
 let deckShots = 0;
@@ -447,6 +576,11 @@ const browser = await chromium.launch();
   await localize(page, 'C01');
   assert(await page.locator(tid('exam-C01-E2')).isDisabled(), 'C01-E2 locked until C01-E1');
   for (let i = 1; i <= 4; i++) await page.click(tid(`exam-C01-E${i}`));
+  assert((await page.locator(tid('xray-series-C01')).count()) === 1, 'standard stifle series: ML + CrCd');
+  assert(await page.locator(tid('option-A01')).isDisabled(), 'treatment options locked until the diagnosis card is done');
+  assert((await page.locator(tid('quiz')).count()) === 0, 'reasoning questions come after the radiographic assessment');
+  await page.click(tid('dx-oa-b')); // wrong first reading → note only
+  await answerDx(page);
   assert(await page.locator(tid('option-A01')).isDisabled(), 'treatment options locked until reasoning questions are done');
   await page.click(tid('quiz-evidence-E3')); // wrong first answer, recorded
   await answerQuiz(page);
@@ -460,29 +594,17 @@ const browser = await chromium.launch();
   assert((await page.getAttribute(tid('verdict'), 'data-outcome')) === 'alternative', 'A02 → 可接受替代');
   assert((await page.locator(tid('verdict')).textContent()).includes('不是醫療錯誤'), 'alternative feedback says it is not a medical error');
   await proceedWith(page, 'A01');
-  await page.click(tid('plan-wrong-side'));
-  await page.click(tid('tplo-check'));
-  await page.click(tid('plan-correct'));
-  await page.click(tid('tplo-check'));
-  await page.click(tid('tplo-place-saw'));
-  await page.click(tid('tplo-cut'));
-  for (let i = 0; i < 20; i++) await page.click(tid('tplo-rot-plus'));
-  await page.click(tid('tplo-check'));
-  await page.click(tid('tplo-seat-plate'));
-  await page.click(tid('tplo-hole-3'));
-  for (const h of [0, 1, 2, 4, 5, 6]) await page.click(tid(`tplo-hole-${h}`));
-  await page.click(tid('tplo-check'));
-  await page.click(tid('q-side-一致'));
-  await page.click(tid('q-implant-符合'));
-  await page.click(tid('q-next-進入術後照護與追蹤'));
-  await page.screenshot({ path: `${OUT}/C01-tplo.png`, fullPage: true });
-  await page.click(tid('tplo-check'));
+  const tp = await tploPlanAndOperate(page, { blade: 24, plate: 'tplo-2.7', rotation: 22 });
+  assert(tp.tpaRow.includes('27.0°'), 'planned TPA measured from the landmarks matches the X-ray reading (27°)');
+  assert(tp.small.includes('範本過小'), 'a 2.0 mm plate template is too small for this tibia (image fit, not weight)');
+  log('C01 planning + surgery done');
   await deck(page);
   sc = await scores(page);
   log('C01 scores', sc.join(' / '));
   assert((await reasoningNote(page)).includes('處置 0'), 'C01 reasoning keeps first scored choice (A04 = 0), not the later preferred one');
   assert((await reasoningNote(page)).includes('判斷題 67'), 'C01 first wrong reasoning answer is kept (67)');
   assert(sc[0] === '90', 'C01 exam score reflects the wrong first localisation');
+  assert(sc[2] === '40', 'C01 operation = first-attempt TPLO decisions only (study ✕, tray ✕, approach ✓, stability ✕, post-op ✓ → 40); numbers are not scored');
   assert((await page.locator(tid('improve-top')).locator('li').count()) <= 2, 'results highlight at most two improvements');
   await page.screenshot({ path: `${OUT}/C01-results.png`, fullPage: true });
 

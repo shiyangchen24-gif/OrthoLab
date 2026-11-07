@@ -14,7 +14,7 @@ import {
   revealClue,
   type DecisionFeedback,
 } from '../engine/session';
-import { FLOW, flowIndex, guideFor } from '../engine/guide';
+import { FLOW, flowFor, flowIndex, guideFor } from '../engine/guide';
 import { ANSWER_LABEL, type Clue, type ClueCategory } from '../types';
 import { PatientView, limbsFromSide } from '../components/PatientView';
 import { nextPalpation, palpationTrigger, type PalpationEvent } from '../engine/palpation';
@@ -23,12 +23,14 @@ import { XRayPanel } from '../components/art/XRay';
 import { Flags, RefChips, Stepper } from '../components/ui';
 import { GuideBar } from '../components/GuideBar';
 import { useStore } from '../store';
+import { dxItems } from '../data/tploDx';
+import { answerDx, dxDone, dxState } from '../engine/tploDx';
 import { sound } from '../audio';
 
 const CAT_ICON: Record<ClueCategory, string> = { history: '🐾', ortho: '🤲', imaging: '🩻', supplement: '📋' };
 const CAT_LABEL: Record<ClueCategory, string> = { history: '步態／病史', ortho: '骨科檢查', imaging: '影像', supplement: '補充資訊' };
 
-export { FLOW, flowIndex };
+export { FLOW, flowFor, flowIndex };
 
 function highlight(text: string): ReactNode {
   // emphasise measurements, grades and side words so new findings stand out
@@ -50,7 +52,8 @@ export function Clinic() {
   const [fb, setFb] = useState<DecisionFeedback | null>(null);
   const localized = isLocalized(s);
   const quizComplete = quizDone(s);
-  const decisionsOpen = localized && missing.length === 0 && quizComplete;
+  const dxComplete = dxDone(s);
+  const decisionsOpen = localized && missing.length === 0 && dxComplete && quizComplete;
 
   const reveal = (clue: Clue) => {
     if (!clueAvailable(s, clue.id) || s.revealed.includes(clue.id)) return;
@@ -74,7 +77,7 @@ export function Clinic() {
 
   return (
     <div className="stack">
-      <Stepper steps={FLOW} current={fi} done={(i) => i < fi} />
+      <Stepper steps={flowFor(s)} current={fi} done={(i) => i < fi} />
       <GuideBar step={guideFor(s, !!fb && fb.outcome !== 'missing-clues' && fb.option.route.kind !== 'retry')} />
       <div className="clinic">
         <aside className="card patient-panel stack" aria-label="病患區">
@@ -180,7 +183,8 @@ export function Clinic() {
             )}
           </section>
 
-          {localized && missing.length === 0 && <ReasoningQuiz />}
+          {localized && missing.length === 0 && dxItems(c.id).length > 0 && <DxCard />}
+          {localized && missing.length === 0 && dxComplete && <ReasoningQuiz />}
 
           <section className="card" aria-label="決策區" data-guide="options">
             <h3>處置選擇</h3>
@@ -188,7 +192,13 @@ export function Clinic() {
               <div className="locked-note" data-testid="options-locked">
                 <span aria-hidden>🔒</span>
                 <span>
-                  {!localized ? '先定位患肢。' : missing.length ? `先完成必做檢查（尚缺：${missing.map((m) => m.examName).join('、')}）。` : '先完成上方的推理判斷題。'}
+                  {!localized
+                    ? '先定位患肢。'
+                    : missing.length
+                      ? `先完成必做檢查（尚缺：${missing.map((m) => m.examName).join('、')}）。`
+                      : !dxComplete
+                        ? '先完成上方的影像評估與診斷確認。'
+                        : '先完成上方的推理判斷題。'}
                   完成後才能選擇處置。
                 </span>
               </div>
@@ -280,6 +290,64 @@ function LimbStep() {
           )}
         </div>
       </div>
+    </section>
+  );
+}
+
+/** ① Diagnosis: radiographic assessment of the standard series → diagnosis → TPLO indication. */
+function DxCard() {
+  const { data, updateSession } = useStore();
+  const s = data.session!;
+  const items = dxItems(s.caseId);
+  const st = dxState(s);
+  const done = dxDone(s);
+  return (
+    <section className="card" aria-label="影像評估與診斷" data-testid="dx-card">
+      <div className="row">
+        <h3 style={{ margin: 0 }}>① 影像評估與診斷</h3>
+        <span className="small muted">依標準 X 光（ML＋CrCd）與檢查結果逐項判讀；只檢核完成，不計分。</span>
+        {done && <span className="tag ok">✓ 診斷成立，可選擇處置</span>}
+      </div>
+      {items.map((q) => {
+        const ans = st.answers[q.id];
+        const chosen = q.options.find((o) => o.id === ans);
+        const solved = !!chosen?.correct;
+        return (
+          <div key={q.id} className="quiz-q" data-guide={`dx-${q.id}`}>
+            <b>{q.prompt}</b>
+            <div className="quiz-opts" role="group" aria-label={q.prompt}>
+              {q.options.map((o) => {
+                const on = ans === o.id;
+                return (
+                  <button
+                    key={o.id}
+                    className={`quiz-opt ${on ? (o.correct ? 'right' : 'wrong') : ''}`}
+                    aria-pressed={on}
+                    disabled={solved && !on}
+                    onClick={() => {
+                      if (solved) return;
+                      updateSession((x) => answerDx(x, q.id, o.id));
+                      sound.play(o.correct ? 'success' : 'warn');
+                    }}
+                    data-testid={`dx-${q.id}-${o.id}`}
+                    data-correct={o.correct ? 'y' : 'n'}
+                  >
+                    {on && (o.correct ? '✓ ' : '✕ ')}
+                    {o.text}
+                  </button>
+                );
+              })}
+            </div>
+            {chosen && (
+              <p className="small" style={{ marginTop: 6 }} role="status">
+                {chosen.correct ? '✓ ' : '△ 再對照病歷：'}
+                {q.why}
+                <span className="muted">（依據：{q.basis}）</span>
+              </p>
+            )}
+          </div>
+        );
+      })}
     </section>
   );
 }
